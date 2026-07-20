@@ -869,7 +869,7 @@ function updateBulkDownloadButton() {
   const btn = document.getElementById('bulk-download-pdf-btn');
   if (!btn) return;
   btn.disabled = selectedIds.size === 0;
-  btn.innerText = `Unduh PDF Terpilih (${selectedIds.size})`;
+  btn.innerHTML = `<i class="fa-solid fa-print"></i> Unduh File Terpilih (${selectedIds.size})`;
 }
 
 /**
@@ -1239,17 +1239,65 @@ async function downloadSelectedPDFs() {
       
       const percent = Math.round((i / total) * 100);
       if (bar) bar.style.width = `${percent}%`;
-      if (status) status.innerText = `Mengunduh Laporan ${i + 1} dari ${total} (${percent}%) - ${respondent.nama}`;
+      if (status) status.innerText = `Mempersiapkan Cetak ${i + 1} dari ${total} (${percent}%) - ${respondent.nama}`;
       
       appState.selectedRespondent = respondent;
-      await executePDFDownloadDirectly(respondent);
       
-      // Delay to let browser trigger download and render images cleanly
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Load and map PDF fields
+      document.getElementById('pdf-reg-id').innerText = respondent.id;
+      document.getElementById('pdf-timestamp').innerText = respondent.timestamp;
+      document.getElementById('pdf-nama').innerText = respondent.nama;
+      document.getElementById('pdf-sig-nama').innerText = respondent.nama;
+      
+      document.getElementById('pdf-kampus').innerText = respondent.kampus;
+      document.getElementById('pdf-semester').innerText = respondent.semester;
+      document.getElementById('pdf-ipk').innerText = respondent.ipk_display;
+      document.getElementById('pdf-whatsapp').innerText = respondent.whatsapp;
+      document.getElementById('pdf-alamat').innerText = respondent.alamat;
+      document.getElementById('pdf-tempat-tinggal').innerText = respondent.tempat_tinggal;
+      document.getElementById('pdf-ukt').innerText = respondent.ukt;
+
+      document.getElementById('pdf-ayah').innerText = respondent.nama_ayah || '-';
+      document.getElementById('pdf-job-ayah').innerText = respondent.pekerjaan_ayah || '-';
+      document.getElementById('pdf-income-ayah').innerText = respondent.penghasilan_ayah || '-';
+      
+      document.getElementById('pdf-ibu').innerText = respondent.nama_ibu || '-';
+      document.getElementById('pdf-job-ibu').innerText = respondent.pekerjaan_ibu || '-';
+      document.getElementById('pdf-income-ibu').innerText = respondent.penghasilan_ibu || '-';
+      
+      document.getElementById('pdf-sig-date').innerText = new Date().toLocaleDateString('id-ID', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      });
+
+      // Load all files
+      await Promise.all([
+        loadPDFImage(respondent.ktp, 'pdf-img-ktp', 'LAMPIRAN 1: FOTO KTP'),
+        loadPDFImage(respondent.surat_rekomendasi, 'pdf-img-rekomendasi', 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
+        loadPDFGallery(respondent.foto_rumah, 'pdf-img-rumah')
+      ]);
+
+      const element = document.getElementById('pdf-report-template');
+      element.style.display = 'block';
+      
+      // Small pause to render images correctly
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      const cleanName = respondent.nama.toUpperCase().trim().replace(/\s+/g, '_');
+      const cleanCampus = respondent.kampus.toUpperCase().trim().replace(/\s+/g, '_');
+      const oldTitle = document.title;
+      
+      document.title = `${cleanName}_${cleanCampus}`;
+      window.print();
+      document.title = oldTitle;
+
+      element.style.display = 'none';
+      
+      // Delay before next window triggers
+      await new Promise(resolve => setTimeout(resolve, 400));
     }
     
     if (bar) bar.style.width = '100%';
-    if (status) status.innerText = `Selesai Mengunduh ${total} Laporan!`;
+    if (status) status.innerText = `Selesai memproses ${total} dokumen!`;
     
     setTimeout(() => {
       if (modal) modal.classList.remove('show');
@@ -1263,8 +1311,8 @@ async function downloadSelectedPDFs() {
     }, 1200);
 
   } catch (error) {
-    console.error('Error during bulk download:', error);
-    alert('Terjadi kesalahan saat mengunduh beberapa PDF.');
+    console.error('Error during bulk print:', error);
+    alert('Terjadi kesalahan saat mencetak beberapa dokumen.');
     if (modal) modal.classList.remove('show');
   } finally {
     if (bulkBtn) bulkBtn.disabled = false;
