@@ -1,0 +1,172 @@
+<!-- Hidden PDF Report Layout Template Fragment -->
+<div id="pdf-report-template" class="pdf-container">
+  <!-- Header Spacing -->
+  <div class="pdf-header">
+    <table class="pdf-header-table">
+      <tr>
+        <td class="logo-cell-left">
+          <img src="https://drive.google.com/thumbnail?sz=w200-h200&id=1kVg8K0z6s5IEbsBllSv-4tEiOCov7_xF" alt="BMM Logo">
+        </td>
+        <td class="title-cell-center">
+          <h3>Lampiran LPJ Program beasiswa Tanggap Bencana BPKH</h3>
+          <p class="subtitle">Dokumen Verifikasi dan Dukungan Data Calon Penerima Manfaat BMM & BPKH</p>
+        </td>
+        <td class="logo-cell-right">
+          <img src="https://drive.google.com/thumbnail?sz=w300-h200&id=1fu9i_Rw0hWc5wqpegTaqgmlPfE95J2p5" alt="BPKH Logo">
+        </td>
+      </tr>
+    </table>
+    <div class="pdf-header-divider"></div>
+  </div>
+
+  <div class="pdf-title-block">
+    <h4>FORMULIR DOKUMENTASI DATA PENERIMA MANFAAT</h4>
+    <p>ID Registrasi: #<span id="pdf-reg-id">-</span> | Tanggal Input: <span id="pdf-timestamp">-</span></p>
+  </div>
+
+  <!-- Section Data Diri -->
+  <div class="pdf-section">
+    <h5 class="pdf-section-title">I. DATA DIRI PENERIMA MANFAAT</h5>
+    <table class="pdf-data-table">
+      <tr>
+        <td class="label-width">Nama Lengkap</td>
+        <td class="colon-width">:</td>
+        <td><strong id="pdf-nama">-</strong></td>
+      </tr>
+      <tr>
+        <td>Asal Perguruan Tinggi</td>
+        <td>:</td>
+        <td id="pdf-kampus">-</td>
+      </tr>
+      <tr>
+        <td>Semester / IPK</td>
+        <td>:</td>
+        <td>Semester <span id="pdf-semester">-</span> (IPK Terakhir: <strong id="pdf-ipk">-</strong>)</td>
+      </tr>
+      <tr>
+        <td>Nomor WhatsApp</td>
+        <td>:</td>
+        <td id="pdf-whatsapp">-</td>
+      </tr>
+      <tr>
+        <td>Alamat Lengkap</td>
+        <td>:</td>
+        <td id="pdf-alamat">-</td>
+      </tr>
+      <tr>
+        <td>Tempat Tinggal Saat Ini</td>
+        <td>:</td>
+        <td id="pdf-tempat-tinggal">-</td>
+      </tr>
+      <tr>
+        <td>Biaya UKT / Semester</td>
+        <td>:</td>
+        <td id="pdf-ukt">-</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Section Data Keluarga -->
+  <div class="pdf-section">
+    <h5 class="pdf-section-title">II. INFORMASI DATA KELUARGA</h5>
+    <table class="pdf-data-table">
+      <tr>
+        <td class="label-width">Nama Ayah / Wali</td>
+        <td class="colon-width">:</td>
+        <td id="pdf-ayah">-</td>
+      </tr>
+      <tr>
+        <td>Pekerjaan / Penghasilan Ayah</td>
+        <td>:</td>
+        <td><span id="pdf-job-ayah">-</span> / <span id="pdf-income-ayah">-</span></td>
+      </tr>
+      <tr>
+        <td>Nama Ibu</td>
+        <td>:</td>
+        <td id="pdf-ibu">-</td>
+      </tr>
+      <tr>
+        <td>Pekerjaan / Penghasilan Ibu</td>
+        <td>:</td>
+        <td><span id="pdf-job-ibu">-</span> / <span id="pdf-income-ibu">-</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Page Break for page 2 -->
+  <div class="html2pdf__page-break"></div>
+
+  <!-- Header for Page 2 -->
+  <div class="pdf-header pdf-header-page2">
+    <table class="pdf-header-table">
+      <tr>
+        <td class="logo-cell-left">
+          <img src="https://drive.google.com/thumbnail?sz=w200-h200&id=1kVg8K0z6s5IEbsBllSv-4tEiOCov7_xF" alt="BMM Logo">
+        </td>
+        <td class="title-cell-center">
+          <h3>Lampiran LPJ Program beasiswa Tanggap Bencana BPKH</h3>
+          <p class="subtitle">Dokumen Verifikasi dan Dukungan Data Calon Penerima Manfaat BMM & BPKH</p>
+        </td>
+        <td class="logo-cell-right">
+          <img src="https://drive.google.com/thumbnail?sz=w300-h200&id=1fu9i_Rw0hWc5wqpegTaqgmlPfE95J2p5" alt="BPKH Logo">
+        </td>
+      </tr>
+    </table>
+    <div class="pdf-header-divider"></div>
+  </div>
+
+  <!-- Section Lampiran Dokumen (Printed inside PDF) -->
+  <div class="pdf-section">
+    <h5 class="pdf-section-title">III. DOKUMEN LAMPIRAN UTAMA</h5>
+    <div class="pdf-document-container">
+      <!-- KTP -->
+      <div class="pdf-doc-box">
+        <h6>LAMPIRAN 1: FOTO KARTU TANDA PENDUDUK (KTP)</h6>
+        <div class="pdf-image-wrapper" id="pdf-img-ktp">
+          <div class="image-placeholder">Memuat foto KTP...</div>
+        </div>
+      </div>
+      
+      <!-- SURAT REKOMENDASI -->
+      <div class="pdf-doc-box">
+        <h6>LAMPIRAN 2: FOTO SURAT REKOMENDASI KAMPUS</h6>
+        <div class="pdf-image-wrapper" id="pdf-img-rekomendasi">
+          <div class="image-placeholder">Memuat surat rekomendasi...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section Foto Rumah Terdampak (Printed inside PDF) -->
+  <div class="pdf-section">
+    <h5 class="pdf-section-title">IV. DOKUMENTASI RUMAH TERDAMPAK BENCANA</h5>
+    <div class="pdf-gallery-container" id="pdf-img-rumah">
+      <!-- Photos will load here as base64 images -->
+      <div class="image-placeholder">Memuat foto rumah terdampak...</div>
+    </div>
+  </div>
+
+  <!-- Section Pernyataan & Tanda Tangan -->
+  <div class="pdf-signature-section">
+    <p class="declaration-text">
+      Dengan ini saya menyatakan bersedia mengikuti seluruh ketentuan Program Pemulihan dan Dukungan Pendidikan bagi Korban Bencana Sumatera serta menyatakan bahwa semua informasi dan lampiran dokumen yang diberikan adalah benar dan sesuai dengan kondisi aslinya.
+    </p>
+    <br>
+    <table class="signature-table">
+      <tr>
+        <td style="width: 50%;">
+          <p>Mengetahui,</p>
+          <strong>Lembaga Baitulmaal Muamalat</strong>
+          <div class="signature-line"></div>
+          <p class="signature-date">Tanggal: .............................</p>
+        </td>
+        <td style="width: 50%; text-align: right;">
+          <p>Pemohon,</p>
+          <strong id="pdf-sig-nama">-</strong>
+          <div class="signature-line"></div>
+          <p class="signature-date">Tanggal: <span id="pdf-sig-date">-</span></p>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BMM & BPKH - Dashboard LPJ Beasiswa Tanggap Bencana</title>
+  
+  <!-- Inter Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="light-theme">
+  <!-- Top Navigation Bar -->
+  <header class="app-header">
+    <div class="header-logo-container">
+      <img src="https://drive.google.com/thumbnail?sz=w200-h200&id=1kVg8K0z6s5IEbsBllSv-4tEiOCov7_xF" alt="Logo BMM" class="logo-bmm">
+      <div class="logo-divider"></div>
+      <img src="https://drive.google.com/thumbnail?sz=w300-h200&id=1fu9i_Rw0hWc5wqpegTaqgmlPfE95J2p5" alt="Logo BPKH" class="logo-bpkh">
+    </div>
+    <div class="header-title">
+      <h1>Dashboard LPJ Program Beasiswa Tanggap Bencana BPKH</h1>
+      <p>Sistem Pemantauan Data dan Analisis Penerima Manfaat Hasil Sinergi BMM & BPKH</p>
+    </div>
+    <div class="header-actions">
+      <button id="theme-toggle-btn" class="icon-btn" title="Ganti Tema">
+        <i class="fa-solid fa-moon"></i>
+      </button>
+      <button id="refresh-data-btn" class="primary-btn">
+        <i class="fa-solid fa-arrows-rotate"></i> Refresh Data
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View Grid -->
+  <main class="dashboard-container">
+    <!-- Left Navigation/Control Panel -->
+    <aside class="sidebar-nav">
+      <div class="sidebar-section">
+        <h3>Menu Navigasi</h3>
+        <a href="index.html" class="nav-item active">
+          <i class="fa-solid fa-chart-line"></i> Ringkasan Eksekutif
+        </a>
+        <a href="monitoring.html" class="nav-item">
+          <i class="fa-solid fa-table-list"></i> Database Monitoring
+        </a>
+      </div>
+
+      <div class="sidebar-info-card">
+        <h4>Status Sumber Data</h4>
+        <div class="status-indicator online">
+          <span class="pulse-dot"></span>
+          <span id="data-status-text">Menghubungkan ke API...</span>
+        </div>
+        <p class="data-source-meta">Sheet: <strong id="meta-sheet-name">Form Responses 1</strong></p>
+        <p class="data-source-meta">Terakhir Diperbarui: <br><strong id="meta-last-updated">-</strong></p>
+      </div>
+      
+      <div class="sidebar-footer">
+        <p>&copy; 2026 Baitulmaal Muamalat</p>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <section class="main-content">
+      <div id="dashboard-view">
+        <!-- KPI Row -->
+        <div class="kpi-grid">
+          <!-- Total Responden -->
+          <div class="kpi-card glass-card">
+            <div class="kpi-icon icon-purple">
+              <i class="fa-solid fa-users"></i>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-label">Total Responden</span>
+              <h2 id="kpi-total-responden">-</h2>
+              <span class="kpi-meta text-green"><i class="fa-solid fa-arrow-trend-up"></i> Data Aktif</span>
+            </div>
+          </div>
+          <!-- Top IPK Leaders -->
+          <div class="kpi-card glass-card span-2-col">
+            <div class="kpi-icon icon-green">
+              <i class="fa-solid fa-award"></i>
+            </div>
+            <div class="kpi-data leaderboard-container">
+              <span class="kpi-label">3 IPK Tertinggi</span>
+              <div id="kpi-top-ipk-list" class="top-ipk-list">
+                <div class="ipk-skeleton"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Grid (Upper Row) -->
+        <div class="charts-grid">
+          <!-- Jenis Kelamin -->
+          <div class="chart-card glass-card">
+            <h3>Komposisi Jenis Kelamin</h3>
+            <div id="chart-gender" class="chart-wrapper"></div>
+          </div>
+          
+          <!-- Kampus -->
+          <div class="chart-card glass-card span-2-cols">
+            <h3>Distribusi Asal Kampus</h3>
+            <div id="chart-campus" class="chart-wrapper"></div>
+          </div>
+        </div>
+
+        <!-- Charts Grid (Lower Row) -->
+        <div class="charts-grid-3">
+          <!-- Semester -->
+          <div class="chart-card glass-card">
+            <h3>Komposisi Semester</h3>
+            <div id="chart-semester" class="chart-wrapper"></div>
+          </div>
+
+          <!-- Mahasiswa Aktif -->
+          <div class="chart-card glass-card">
+            <h3>Status Keaktifan Mahasiswa</h3>
+            <div id="chart-active-status" class="chart-wrapper"></div>
+          </div>
+
+          <!-- Orang Tua Income Combined -->
+          <div class="chart-card glass-card">
+            <h3>Komposisi Penghasilan Orang Tua</h3>
+            <div id="chart-parents-income" class="chart-wrapper"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- CDN scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  
+  <!-- JavaScript Code files -->
+  <script src="config.js"></script>
+  <script src="mockData.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

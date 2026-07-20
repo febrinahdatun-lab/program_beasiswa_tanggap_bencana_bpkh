@@ -1,0 +1,126 @@
+<!-- Gemini Canvas Split Sliding Panel (Detail View Workspace Fragment) -->
+<div class="canvas-overlay" id="canvas-overlay"></div>
+<aside class="canvas-drawer glass-card" id="canvas-drawer">
+  <div class="canvas-header">
+    <div class="canvas-header-title">
+      <i class="fa-solid fa-address-card header-icon"></i>
+      <div>
+        <h2 id="canvas-nama-header">-</h2>
+        <p id="canvas-kampus-header">-</p>
+      </div>
+    </div>
+    <button class="icon-btn canvas-close-btn" id="canvas-close-btn">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+
+  <div class="canvas-content" id="canvas-content">
+    <!-- Section: Data Diri -->
+    <div class="canvas-section">
+      <h4 class="section-title"><i class="fa-solid fa-user-tie"></i> Data Diri Responden</h4>
+      <table class="details-table">
+        <tr>
+          <th>Nama Lengkap</th>
+          <td id="canvas-nama">-</td>
+        </tr>
+        <tr>
+          <th>Nama Kampus</th>
+          <td id="canvas-kampus">-</td>
+        </tr>
+        <tr>
+          <th>No. Handphone</th>
+          <td>
+            <a id="canvas-whatsapp" href="#" target="_blank" class="wa-action-link">
+              <i class="fa-brands fa-whatsapp"></i> <span id="canvas-whatsapp-text">-</span>
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <th>Alamat Lengkap</th>
+          <td id="canvas-alamat">-</td>
+        </tr>
+        <tr>
+          <th>Tempat Tinggal</th>
+          <td id="canvas-tempat-tinggal">-</td>
+        </tr>
+        <tr>
+          <th>Semester / IPK</th>
+          <td>Semester <span id="canvas-semester">-</span> / IPK: <strong id="canvas-ipk">-</strong></td>
+        </tr>
+        <tr>
+          <th>Biaya UKT</th>
+          <td id="canvas-ukt">-</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Section: Data Orang Tua -->
+    <div class="canvas-section">
+      <h4 class="section-title"><i class="fa-solid fa-people-roof"></i> Data Keluarga</h4>
+      <table class="details-table">
+        <tr>
+          <th>Nama Ayah</th>
+          <td id="canvas-ayah">-</td>
+        </tr>
+        <tr>
+          <th>Pekerjaan & Penghasilan</th>
+          <td><span id="canvas-job-ayah">-</span> (<span id="canvas-income-ayah">-</span>)</td>
+        </tr>
+        <tr>
+          <th>Nama Ibu</th>
+          <td id="canvas-ibu">-</td>
+        </tr>
+        <tr>
+          <th>Pekerjaan & Penghasilan</th>
+          <td><span id="canvas-job-ibu">-</span> (<span id="canvas-income-ibu">-</span>)</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Section: Lampiran & Berkas (Displayed Direct in UI) -->
+    <div class="canvas-section">
+      <h4 class="section-title"><i class="fa-solid fa-paperclip"></i> Dokumen Lampiran</h4>
+      <div class="attachments-grid">
+        <!-- KTP -->
+        <div class="attachment-item-card">
+          <h5>Foto KTP</h5>
+          <div class="attachment-preview-box" id="preview-ktp">
+            <div class="skeleton-image"></div>
+          </div>
+          <a href="#" target="_blank" id="btn-open-ktp" class="attachment-action-btn">
+            <i class="fa-solid fa-up-right-from-square"></i> Buka Original
+          </a>
+        </div>
+
+        <!-- SURAT REKOMENDASI -->
+        <div class="attachment-item-card">
+          <h5>Surat Rekomendasi Kampus</h5>
+          <div class="attachment-preview-box" id="preview-rekomendasi">
+            <div class="skeleton-image"></div>
+          </div>
+          <a href="#" target="_blank" id="btn-open-rekomendasi" class="attachment-action-btn">
+            <i class="fa-solid fa-up-right-from-square"></i> Buka Original
+          </a>
+        </div>
+
+        <!-- FOTO RUMAH -->
+        <div class="attachment-item-card span-full-width">
+          <h5>Foto Rumah Terdampak Banjir</h5>
+          <div class="attachment-preview-box flex-row-gallery" id="preview-rumah">
+            <div class="skeleton-image"></div>
+          </div>
+          <div id="btn-open-rumah-container" class="gallery-links-container">
+            <!-- Will hold dynamic open original buttons if multiple -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas Floating Drawer Actions -->
+  <div class="canvas-footer">
+    <button class="primary-btn fluid-btn" id="canvas-download-pdf-btn">
+      <i class="fa-solid fa-file-pdf"></i> Unduh Formulir PDF
+    </button>
+  </div>
+</aside>
