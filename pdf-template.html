@@ -1,161 +1,190 @@
-<!-- Hidden PDF Report Layout Template Fragment (1-Page A4 Optimized) -->
-<div id="pdf-report-template" class="pdf-container one-page">
-  <!-- Header Spacing -->
-  <div class="pdf-header">
-    <table class="pdf-header-table">
-      <tr>
-        <td class="logo-cell-left">
-          <img src="https://drive.google.com/thumbnail?sz=w200-h200&id=1kVg8K0z6s5IEbsBllSv-4tEiOCov7_xF" alt="BMM Logo">
-        </td>
-        <td class="title-cell-center">
-          <h3>Lampiran LPJ Program beasiswa Tanggap Bencana BPKH</h3>
-          <p class="subtitle">Dokumen Verifikasi dan Dukungan Data Calon Penerima Manfaat BMM & BPKH</p>
-        </td>
-        <td class="logo-cell-right">
-          <img src="https://drive.google.com/thumbnail?sz=w300-h200&id=1fu9i_Rw0hWc5wqpegTaqgmlPfE95J2p5" alt="BPKH Logo">
-        </td>
-      </tr>
-    </table>
-    <div class="pdf-header-divider"></div>
+<!-- Hidden PDF Report Layout Template Fragment (2-Page A4 Optimized) -->
+<div id="pdf-report-template" class="pdf-container two-pages">
+  
+  <!-- ==================== LEMBAR 1 ==================== -->
+  <div class="pdf-page-content">
+    <!-- Header -->
+    <div class="pdf-header">
+      <table class="pdf-header-table">
+        <tr>
+          <td class="logo-cell-left">
+            <img src="https://drive.google.com/thumbnail?sz=w200-h200&id=1kVg8K0z6s5IEbsBllSv-4tEiOCov7_xF" alt="BMM Logo">
+          </td>
+          <td class="title-cell-center">
+            <h3>Lampiran LPJ Program beasiswa Tanggap Bencana BPKH</h3>
+            <p class="subtitle">Dokumen Verifikasi dan Dukungan Data Calon Penerima Manfaat BMM & BPKH</p>
+          </td>
+          <td class="logo-cell-right">
+            <img src="https://drive.google.com/thumbnail?sz=w300-h200&id=1fu9i_Rw0hWc5wqpegTaqgmlPfE95J2p5" alt="BPKH Logo">
+          </td>
+        </tr>
+      </table>
+      <div class="pdf-header-divider"></div>
+    </div>
+
+    <div class="pdf-title-block">
+      <h4>FORMULIR DOKUMENTASI DATA PENERIMA MANFAAT</h4>
+      <p>ID Registrasi: #<span id="pdf-reg-id">-</span> | Tanggal Input: <span id="pdf-timestamp">-</span></p>
+    </div>
+
+    <!-- Section I & II in 2 Columns -->
+    <div class="pdf-columns-wrapper" style="margin-bottom: 12px;">
+      <!-- Section Data Diri (Column 1) -->
+      <div class="pdf-column-50 pdf-section">
+        <h5 class="pdf-section-title">I. DATA DIRI PENERIMA MANFAAT</h5>
+        <table class="pdf-data-table">
+          <tr>
+            <td class="label-width">Nama Lengkap</td>
+            <td class="colon-width">:</td>
+            <td><strong id="pdf-nama">-</strong></td>
+          </tr>
+          <tr>
+            <td>Asal Perguruan Tinggi</td>
+            <td>:</td>
+            <td id="pdf-kampus">-</td>
+          </tr>
+          <tr>
+            <td>Semester / IPK</td>
+            <td>:</td>
+            <td>Semester <span id="pdf-semester">-</span> (IPK: <strong id="pdf-ipk">-</strong>)</td>
+          </tr>
+          <tr>
+            <td>Nomor WhatsApp</td>
+            <td>:</td>
+            <td id="pdf-whatsapp">-</td>
+          </tr>
+          <tr>
+            <td>Alamat Lengkap</td>
+            <td>:</td>
+            <td id="pdf-alamat">-</td>
+          </tr>
+          <tr>
+            <td>Tempat Tinggal</td>
+            <td>:</td>
+            <td id="pdf-tempat-tinggal">-</td>
+          </tr>
+          <tr>
+            <td>Biaya UKT / Semester</td>
+            <td>:</td>
+            <td id="pdf-ukt">-</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Section Data Keluarga (Column 2) -->
+      <div class="pdf-column-50 pdf-section">
+        <h5 class="pdf-section-title">II. INFORMASI DATA KELUARGA</h5>
+        <table class="pdf-data-table">
+          <tr>
+            <td class="label-width">Nama Ayah / Wali</td>
+            <td class="colon-width">:</td>
+            <td id="pdf-ayah">-</td>
+          </tr>
+          <tr>
+            <td>Pekerjaan Ayah</td>
+            <td>:</td>
+            <td id="pdf-job-ayah">-</td>
+          </tr>
+          <tr>
+            <td>Penghasilan Ayah</td>
+            <td>:</td>
+            <td id="pdf-income-ayah">-</td>
+          </tr>
+          <tr>
+            <td>Nama Ibu</td>
+            <td>:</td>
+            <td id="pdf-ibu">-</td>
+          </tr>
+          <tr>
+            <td>Pekerjaan Ibu</td>
+            <td>:</td>
+            <td id="pdf-job-ibu">-</td>
+          </tr>
+          <tr>
+            <td>Penghasilan Ibu</td>
+            <td>:</td>
+            <td id="pdf-income-ibu">-</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section III: Dokumen Lampiran Utama -->
+    <div class="pdf-section" style="margin-top: 5px;">
+      <h5 class="pdf-section-title">III. DOKUMEN LAMPIRAN UTAMA</h5>
+      <div class="pdf-document-container">
+        <!-- KTP -->
+        <div class="pdf-doc-box">
+          <h6>LAMPIRAN 1: FOTO KARTU TANDA PENDUDUK (KTP)</h6>
+          <div class="pdf-image-wrapper" id="pdf-img-ktp">
+            <div class="image-placeholder">Memuat foto KTP...</div>
+          </div>
+        </div>
+        
+        <!-- SURAT REKOMENDASI -->
+        <div class="pdf-doc-box">
+          <h6>LAMPIRAN 2: FOTO SURAT REKOMENDASI KAMPUS</h6>
+          <div class="pdf-image-wrapper" id="pdf-img-rekomendasi">
+            <div class="image-placeholder">Memuat surat rekomendasi...</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="pdf-title-block">
-    <h4>FORMULIR DOKUMENTASI DATA PENERIMA MANFAAT</h4>
-    <p>ID Registrasi: #<span id="pdf-reg-id">-</span> | Tanggal Input: <span id="pdf-timestamp">-</span></p>
-  </div>
+  <!-- Page Break to Page 2 -->
+  <div class="html2pdf__page-break"></div>
 
-  <!-- Side-by-Side 2 Columns Layout for Data Diri & Data Keluarga -->
-  <div class="pdf-columns-wrapper">
-    <!-- Section Data Diri (Column 1) -->
-    <div class="pdf-column-50 pdf-section">
-      <h5 class="pdf-section-title">I. DATA DIRI PENERIMA MANFAAT</h5>
-      <table class="pdf-data-table">
+  <!-- ==================== LEMBAR 2 ==================== -->
+  <div class="pdf-page-content">
+    <!-- Header Page 2 -->
+    <div class="pdf-header pdf-header-page2">
+      <table class="pdf-header-table">
         <tr>
-          <td class="label-width">Nama Lengkap</td>
-          <td class="colon-width">:</td>
-          <td><strong id="pdf-nama">-</strong></td>
+          <td class="logo-cell-left">
+            <img src="https://drive.google.com/thumbnail?sz=w200-h200&id=1kVg8K0z6s5IEbsBllSv-4tEiOCov7_xF" alt="BMM Logo">
+          </td>
+          <td class="title-cell-center">
+            <h3>Lampiran LPJ Program beasiswa Tanggap Bencana BPKH</h3>
+            <p class="subtitle">Dokumen Verifikasi dan Dukungan Data Calon Penerima Manfaat BMM & BPKH</p>
+          </td>
+          <td class="logo-cell-right">
+            <img src="https://drive.google.com/thumbnail?sz=w300-h200&id=1fu9i_Rw0hWc5wqpegTaqgmlPfE95J2p5" alt="BPKH Logo">
+          </td>
         </tr>
+      </table>
+      <div class="pdf-header-divider"></div>
+    </div>
+
+    <!-- Section IV: Foto Rumah Terdampak Bencana (Lembar Kedua Fokus Dokumentasi) -->
+    <div class="pdf-section" style="margin-top: 15px;">
+      <h5 class="pdf-section-title">IV. DOKUMENTASI FOTO RUMAH TERDAMPAK BENCANA</h5>
+      <div class="pdf-gallery-container" id="pdf-img-rumah">
+        <div class="image-placeholder">Memuat foto rumah terdampak...</div>
+      </div>
+    </div>
+
+    <!-- Section Pernyataan & Tanda Tangan (Bottom of Page 2) -->
+    <div class="pdf-signature-section" style="margin-top: 30px;">
+      <p class="declaration-text">
+        Dengan ini saya menyatakan bersedia mengikuti seluruh ketentuan Program Pemulihan dan Dukungan Pendidikan bagi Korban Bencana Sumatera serta menyatakan bahwa semua informasi dan lampiran dokumen yang diberikan adalah benar dan sesuai dengan kondisi aslinya.
+      </p>
+      <table class="signature-table" style="margin-top: 25px;">
         <tr>
-          <td>Asal Perguruan Tinggi</td>
-          <td>:</td>
-          <td id="pdf-kampus">-</td>
-        </tr>
-        <tr>
-          <td>Semester / IPK</td>
-          <td>:</td>
-          <td>Semester <span id="pdf-semester">-</span> (IPK: <strong id="pdf-ipk">-</strong>)</td>
-        </tr>
-        <tr>
-          <td>Nomor WhatsApp</td>
-          <td>:</td>
-          <td id="pdf-whatsapp">-</td>
-        </tr>
-        <tr>
-          <td>Alamat Lengkap</td>
-          <td>:</td>
-          <td id="pdf-alamat">-</td>
-        </tr>
-        <tr>
-          <td>Tempat Tinggal</td>
-          <td>:</td>
-          <td id="pdf-tempat-tinggal">-</td>
-        </tr>
-        <tr>
-          <td>Biaya UKT / Semester</td>
-          <td>:</td>
-          <td id="pdf-ukt">-</td>
+          <td style="width: 50%;">
+            <p>Mengetahui,</p>
+            <strong>Lembaga Baitulmaal Muamalat</strong>
+            <div class="signature-line" style="margin-top: 40px;"></div>
+            <p class="signature-date">Tanggal: .............................</p>
+          </td>
+          <td style="width: 50%; text-align: right;">
+            <p>Pemohon,</p>
+            <strong id="pdf-sig-nama">-</strong>
+            <div class="signature-line" style="margin-top: 40px;"></div>
+            <p class="signature-date">Tanggal: <span id="pdf-sig-date">-</span></p>
+          </td>
         </tr>
       </table>
     </div>
-
-    <!-- Section Data Keluarga (Column 2) -->
-    <div class="pdf-column-50 pdf-section">
-      <h5 class="pdf-section-title">II. INFORMASI DATA KELUARGA</h5>
-      <table class="pdf-data-table">
-        <tr>
-          <td class="label-width">Nama Ayah / Wali</td>
-          <td class="colon-width">:</td>
-          <td id="pdf-ayah">-</td>
-        </tr>
-        <tr>
-          <td>Pekerjaan Ayah</td>
-          <td>:</td>
-          <td id="pdf-job-ayah">-</td>
-        </tr>
-        <tr>
-          <td>Penghasilan Ayah</td>
-          <td>:</td>
-          <td id="pdf-income-ayah">-</td>
-        </tr>
-        <tr>
-          <td>Nama Ibu</td>
-          <td>:</td>
-          <td id="pdf-ibu">-</td>
-        </tr>
-        <tr>
-          <td>Pekerjaan Ibu</td>
-          <td>:</td>
-          <td id="pdf-job-ibu">-</td>
-        </tr>
-        <tr>
-          <td>Penghasilan Ibu</td>
-          <td>:</td>
-          <td id="pdf-income-ibu">-</td>
-        </tr>
-      </table>
-    </div>
-  </div>
-
-  <!-- Section Lampiran Dokumen (Printed inside PDF) -->
-  <div class="pdf-section">
-    <h5 class="pdf-section-title">III. DOKUMEN LAMPIRAN UTAMA</h5>
-    <div class="pdf-document-container">
-      <!-- KTP -->
-      <div class="pdf-doc-box">
-        <h6>LAMPIRAN 1: FOTO KARTU TANDA PENDUDUK (KTP)</h6>
-        <div class="pdf-image-wrapper" id="pdf-img-ktp">
-          <div class="image-placeholder">Memuat foto KTP...</div>
-        </div>
-      </div>
-      
-      <!-- SURAT REKOMENDASI -->
-      <div class="pdf-doc-box">
-        <h6>LAMPIRAN 2: FOTO SURAT REKOMENDASI KAMPUS</h6>
-        <div class="pdf-image-wrapper" id="pdf-img-rekomendasi">
-          <div class="image-placeholder">Memuat surat rekomendasi...</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Section Foto Rumah Terdampak (Printed inside PDF) -->
-  <div class="pdf-section">
-    <h5 class="pdf-section-title">IV. DOKUMENTASI RUMAH TERDAMPAK BENCANA</h5>
-    <div class="pdf-gallery-container" id="pdf-img-rumah">
-      <div class="image-placeholder">Memuat foto rumah terdampak...</div>
-    </div>
-  </div>
-
-  <!-- Section Pernyataan & Tanda Tangan -->
-  <div class="pdf-signature-section">
-    <p class="declaration-text">
-      Dengan ini saya menyatakan bersedia mengikuti seluruh ketentuan Program Pemulihan dan Dukungan Pendidikan bagi Korban Bencana Sumatera serta menyatakan bahwa semua informasi dan lampiran dokumen yang diberikan adalah benar dan sesuai dengan kondisi aslinya.
-    </p>
-    <table class="signature-table">
-      <tr>
-        <td style="width: 50%;">
-          <p>Mengetahui,</p>
-          <strong>Lembaga Baitulmaal Muamalat</strong>
-          <div class="signature-line"></div>
-          <p class="signature-date">Tanggal: .............................</p>
-        </td>
-        <td style="width: 50%; text-align: right;">
-          <p>Pemohon,</p>
-          <strong id="pdf-sig-nama">-</strong>
-          <div class="signature-line"></div>
-          <p class="signature-date">Tanggal: <span id="pdf-sig-date">-</span></p>
-        </td>
-      </tr>
-    </table>
   </div>
 </div>

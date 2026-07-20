@@ -263,6 +263,9 @@ function setupMonitoringEventListeners() {
   
   const downloadPdfBtn = document.getElementById('canvas-download-pdf-btn');
   if (downloadPdfBtn) downloadPdfBtn.addEventListener('click', downloadRespondentPDF);
+  
+  const printPdfBtn = document.getElementById('canvas-print-pdf-btn');
+  if (printPdfBtn) printPdfBtn.addEventListener('click', printRespondentPDF);
 
   // Search/Filter events
   const searchInput = document.getElementById('table-search');
@@ -1088,13 +1091,14 @@ async function fetchBase64FromAPI(fileId, containerElement, isGalleryItem = fals
     
     if (result.status === 'success') {
       if (result.contentType === 'application/pdf') {
-        containerElement.innerHTML = `
-          <div class="pdf-doc-placeholder">
-            <i class="fa-solid fa-file-pdf"></i>
-            <span>DOKUMEN REKOMENDASI (PDF)</span>
-            <span style="font-size: 7px; color: var(--text-secondary); margin-top: 2px;">Tinjau via tombol buka</span>
-          </div>
-        `;
+        const img = document.createElement('img');
+        img.src = `https://drive.google.com/thumbnail?sz=w800&id=${fileId}`;
+        img.onload = () => {
+          img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+        };
+        if (isGalleryItem) containerElement.className = '';
+        containerElement.innerHTML = '';
+        containerElement.appendChild(img);
         return;
       }
       
@@ -1135,6 +1139,72 @@ async function downloadRespondentPDF() {
   } finally {
     downloadBtn.disabled = false;
     downloadBtn.innerHTML = oldBtnText;
+  }
+}
+
+/**
+ * Single PDF Report Native Printer (Selectable & Editable Text)
+ */
+async function printRespondentPDF() {
+  const item = appState.selectedRespondent;
+  if (!item) return;
+
+  const printBtn = document.getElementById('canvas-print-pdf-btn');
+  const oldBtnText = printBtn.innerHTML;
+  
+  printBtn.disabled = true;
+  printBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mempersiapkan Print...';
+
+  try {
+    // Fill printable A4 fields
+    document.getElementById('pdf-reg-id').innerText = item.id;
+    document.getElementById('pdf-timestamp').innerText = item.timestamp;
+    document.getElementById('pdf-nama').innerText = item.nama;
+    document.getElementById('pdf-sig-nama').innerText = item.nama;
+    
+    document.getElementById('pdf-kampus').innerText = item.kampus;
+    document.getElementById('pdf-semester').innerText = item.semester;
+    document.getElementById('pdf-ipk').innerText = item.ipk_display;
+    document.getElementById('pdf-whatsapp').innerText = item.whatsapp;
+    document.getElementById('pdf-alamat').innerText = item.alamat;
+    document.getElementById('pdf-tempat-tinggal').innerText = item.tempat_tinggal;
+    document.getElementById('pdf-ukt').innerText = item.ukt;
+
+    document.getElementById('pdf-ayah').innerText = item.nama_ayah || '-';
+    document.getElementById('pdf-job-ayah').innerText = item.pekerjaan_ayah || '-';
+    document.getElementById('pdf-income-ayah').innerText = item.penghasilan_ayah || '-';
+    
+    document.getElementById('pdf-ibu').innerText = item.nama_ibu || '-';
+    document.getElementById('pdf-job-ibu').innerText = item.pekerjaan_ibu || '-';
+    document.getElementById('pdf-income-ibu').innerText = item.penghasilan_ibu || '-';
+    
+    document.getElementById('pdf-sig-date').innerText = new Date().toLocaleDateString('id-ID', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    });
+
+    // Load and cache PDF attachment images
+    await Promise.all([
+      loadPDFImage(item.ktp, 'pdf-img-ktp', 'LAMPIRAN 1: FOTO KTP'),
+      loadPDFImage(item.surat_rekomendasi, 'pdf-img-rekomendasi', 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
+      loadPDFGallery(item.foto_rumah, 'pdf-img-rumah')
+    ]);
+
+    const element = document.getElementById('pdf-report-template');
+    element.style.display = 'block';
+
+    // Wait a brief moment for layout/images rendering
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    // Call native print to save as editable vector text PDF
+    window.print();
+
+    element.style.display = 'none';
+  } catch (error) {
+    console.error('Error printing PDF:', error);
+    alert('Gagal mencetak PDF.');
+  } finally {
+    printBtn.disabled = false;
+    printBtn.innerHTML = oldBtnText;
   }
 }
 
@@ -1236,13 +1306,14 @@ async function executePDFDownloadDirectly(item) {
   const element = document.getElementById('pdf-report-template');
   element.style.display = 'block';
 
-  // 1-page PDF options
+  // 2-page PDF options
   const pdfOptions = {
-    margin: [6, 6, 6, 6],
+    margin: [10, 10, 10, 10],
     filename: `Formulir_Pemulihan_${item.nama.replace(/\s+/g, '_')}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true, logging: false },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css', 'legacy'] }
   };
 
   await html2pdf().set(pdfOptions).from(element).save();
@@ -1274,13 +1345,14 @@ async function loadPDFImage(url, targetWrapperId, labelText) {
       const result = await response.json();
       if (result.status === 'success') {
         if (result.contentType === 'application/pdf') {
-          wrapper.innerHTML = `
-            <div class="pdf-doc-placeholder">
-              <i class="fa-solid fa-file-pdf"></i>
-              <strong>LAMPIRAN REKOMENDASI (PDF)</strong>
-              <span style="font-size:7pt; color: #4b5563; margin-top:2px;">Dokumen asli terlampir secara elektronik</span>
-            </div>
-          `;
+          const img = document.createElement('img');
+          img.src = `https://drive.google.com/thumbnail?sz=w800&id=${fileId}`;
+          img.alt = labelText;
+          img.onload = () => {
+            img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+          };
+          wrapper.innerHTML = '';
+          wrapper.appendChild(img);
           return;
         }
         
