@@ -1196,7 +1196,12 @@ async function printRespondentPDF() {
     await new Promise(resolve => setTimeout(resolve, 600));
 
     // Call native print to save as editable vector text PDF
+    const cleanName = item.nama.toUpperCase().trim().replace(/\s+/g, '_');
+    const cleanCampus = item.kampus.toUpperCase().trim().replace(/\s+/g, '_');
+    const oldTitle = document.title;
+    document.title = `${cleanName}_${cleanCampus}`;
     window.print();
+    document.title = oldTitle;
 
     element.style.display = 'none';
   } catch (error) {
@@ -1306,14 +1311,17 @@ async function executePDFDownloadDirectly(item) {
   const element = document.getElementById('pdf-report-template');
   element.style.display = 'block';
 
-  // 2-page PDF options
+  const cleanName = item.nama.toUpperCase().trim().replace(/\s+/g, '_');
+  const cleanCampus = item.kampus.toUpperCase().trim().replace(/\s+/g, '_');
+  const filename = `${cleanName}_${cleanCampus}.pdf`;
+
+  // 1-page PDF options
   const pdfOptions = {
-    margin: [10, 10, 10, 10],
-    filename: `Formulir_Pemulihan_${item.nama.replace(/\s+/g, '_')}.pdf`,
+    margin: [6, 6, 6, 6],
+    filename: filename,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true, logging: false },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'] }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
 
   await html2pdf().set(pdfOptions).from(element).save();
@@ -1402,39 +1410,72 @@ async function loadPDFGallery(urlsStr, targetWrapperId) {
     return;
   }
 
-  for (let url of urls) {
-    const fileId = extractDriveId(url);
-    if (!fileId) continue;
+  if (urls.length === 1) {
+    wrapper.className = 'pdf-single-photo-container';
+    wrapper.innerHTML = `
+      <div class="pdf-single-photo-box" id="pdf-house-box-0">
+        <span class="image-placeholder">Memuat foto rumah...</span>
+      </div>
+    `;
+    const fileId = extractDriveId(urls[0]);
+    if (fileId) {
+      const box = document.getElementById('pdf-house-box-0');
+      await fetchAndRenderPDFImage(fileId, box, "Foto Rumah Terdampak");
+    }
+  } else {
+    wrapper.className = 'pdf-document-container';
+    wrapper.innerHTML = urls.map((url, idx) => `
+      <div class="pdf-doc-box">
+        <h6>LAMPIRAN RUMAH ${idx + 1}</h6>
+        <div class="pdf-image-wrapper" id="pdf-house-box-${idx}">
+          <span class="image-placeholder">Memuat foto rumah ${idx + 1}...</span>
+        </div>
+      </div>
+    `).join('');
 
-    let imageLoaded = false;
-    if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
-      try {
-        const response = await fetch(`${CONFIG.API_URL}?action=getFile&id=${fileId}`);
-        const result = await response.json();
-        if (result.status === 'success') {
-          const img = document.createElement('img');
-          img.src = `data:${result.contentType};base64,${result.base64}`;
-          img.alt = "Foto Rumah Terdampak";
-          img.onload = () => {
-            img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
-          };
-          wrapper.appendChild(img);
-          imageLoaded = true;
-        }
-      } catch (err) {
-        console.warn(err);
+    await Promise.all(urls.map(async (url, idx) => {
+      const fileId = extractDriveId(url);
+      if (!fileId) return;
+      const box = document.getElementById(`pdf-house-box-${idx}`);
+      await fetchAndRenderPDFImage(fileId, box, `Foto Rumah ${idx + 1}`);
+    }));
+  }
+}
+
+/**
+ * Helper to fetch a file via API or fallback and render inside a container
+ */
+async function fetchAndRenderPDFImage(fileId, containerElement, altText) {
+  let imageLoaded = false;
+  if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
+    try {
+      const response = await fetch(`${CONFIG.API_URL}?action=getFile&id=${fileId}`);
+      const result = await response.json();
+      if (result.status === 'success') {
+        const img = document.createElement('img');
+        img.src = `data:${result.contentType};base64,${result.base64}`;
+        img.alt = altText;
+        img.onload = () => {
+          img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+        };
+        containerElement.innerHTML = '';
+        containerElement.appendChild(img);
+        imageLoaded = true;
       }
+    } catch (err) {
+      console.warn('API load failed for house photo:', err);
     }
+  }
 
-    if (!imageLoaded) {
-      const img = document.createElement('img');
-      img.src = `https://drive.google.com/thumbnail?sz=w400&id=${fileId}`;
-      img.alt = "Foto Rumah Terdampak";
-      img.setAttribute('crossorigin', 'anonymous');
-      img.onload = () => {
-        img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
-      };
-      wrapper.appendChild(img);
-    }
+  if (!imageLoaded) {
+    const img = document.createElement('img');
+    img.src = `https://drive.google.com/thumbnail?sz=w600&id=${fileId}`;
+    img.alt = altText;
+    img.setAttribute('crossorigin', 'anonymous');
+    img.onload = () => {
+      img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+    };
+    containerElement.innerHTML = '';
+    containerElement.appendChild(img);
   }
 }

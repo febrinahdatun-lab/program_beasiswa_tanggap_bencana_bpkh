@@ -1520,98 +1520,82 @@ a:hover {
   font-weight: 500;
 }
 
-/* 2-Page PDF Layout Styles */
-.pdf-container.two-pages {
+/* 1-Page PDF Layout Styles */
+.pdf-container.one-page {
   width: 210mm;
-  padding: 12mm 15mm;
+  height: 297mm;
+  padding: 6mm 10mm;
   background-color: #ffffff;
   color: #000000;
   box-sizing: border-box;
-}
-.pdf-page-content {
   position: relative;
-  page-break-inside: avoid;
 }
-.pdf-container.two-pages .pdf-header-divider {
-  margin-top: 8px;
-  margin-bottom: 12px;
+.pdf-container.one-page .pdf-header-divider {
+  margin-top: 5px;
+  margin-bottom: 8px;
 }
-.pdf-container.two-pages .pdf-title-block {
-  margin-bottom: 12px;
+.pdf-container.one-page .pdf-title-block {
+  margin-bottom: 8px;
 }
-.pdf-container.two-pages .pdf-title-block h4 {
-  font-size: 11pt;
+.pdf-container.one-page .pdf-title-block h4 {
+  font-size: 10pt;
 }
-.pdf-container.two-pages .pdf-title-block p {
-  font-size: 8pt;
-  margin-top: 2px;
+.pdf-container.one-page .pdf-title-block p {
+  font-size: 7.5pt;
+  margin-top: 1px;
 }
 .pdf-columns-wrapper {
   display: flex;
-  gap: 15px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 .pdf-column-50 {
   flex: 1;
   width: 50%;
 }
-.pdf-container.two-pages .pdf-section {
-  margin-bottom: 12px;
-}
-.pdf-container.two-pages .pdf-section-title {
-  font-size: 9pt;
-  padding: 4px 10px;
+.pdf-container.one-page .pdf-section {
   margin-bottom: 8px;
 }
-.pdf-container.two-pages .pdf-data-table td {
-  padding: 4px 6px;
-  font-size: 8pt;
-}
-.pdf-container.two-pages .label-width {
-  width: 130px;
-}
-.pdf-container.two-pages .pdf-document-container {
-  display: flex;
-  gap: 15px;
-}
-.pdf-container.two-pages .pdf-doc-box {
-  flex: 1;
-  width: 50%;
-  padding: 8px;
-}
-.pdf-container.two-pages .pdf-doc-box h6 {
-  font-size: 7.5pt;
+.pdf-container.one-page .pdf-section-title {
+  font-size: 8.5pt;
+  padding: 3px 8px;
   margin-bottom: 6px;
 }
-.pdf-container.two-pages .pdf-image-wrapper {
-  height: 150px;
-  position: relative;
-  background-color: #f8fafc;
+.pdf-container.one-page .pdf-data-table td {
+  padding: 3px 4px;
+  font-size: 7.5pt;
+}
+.pdf-container.one-page .label-width {
+  width: 125px;
+}
+.pdf-container.one-page .pdf-document-container {
+  display: flex;
+  gap: 10px;
+}
+.pdf-container.one-page .pdf-doc-box {
+  flex: 1;
+  width: 50%;
+  padding: 6px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
+  background-color: #f8fafc;
+}
+.pdf-container.one-page .pdf-doc-box h6 {
+  font-size: 7pt;
+  margin-bottom: 4px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.pdf-container.one-page .pdf-image-wrapper {
+  height: 90px;
+  position: relative;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.pdf-container.two-pages .pdf-gallery-container {
-  padding: 10px;
-  gap: 15px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  min-height: 160px;
-  background-color: #f8fafc;
-}
-.pdf-container.two-pages .pdf-gallery-container img {
-  height: 140px;
-  max-height: 140px;
-  width: auto;
-  object-fit: contain;
-  border-radius: 4px;
 }
 .pdf-image-wrapper img {
   max-width: 100%;
@@ -1622,6 +1606,31 @@ a:hover {
   margin: 0 auto;
   display: block;
 }
+
+/* Dynamic single-photo house layout */
+.pdf-single-photo-container {
+  display: block;
+  width: 100%;
+}
+.pdf-single-photo-box {
+  height: 90px;
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8fafc;
+  overflow: hidden;
+}
+.pdf-single-photo-box img {
+  max-height: 90px;
+  max-width: 100%;
+  object-fit: contain;
+  margin: 0 auto;
+  display: block;
+}
+
 .pdf-doc-placeholder {
   display: flex;
   flex-direction: column;
@@ -1642,22 +1651,22 @@ a:hover {
   color: #ef4444;
   margin-bottom: 4px;
 }
-.pdf-container.two-pages .pdf-signature-section {
-  margin-top: 20px;
+.pdf-container.one-page .pdf-signature-section {
+  margin-top: 10px;
 }
-.pdf-container.two-pages .declaration-text {
+.pdf-container.one-page .declaration-text {
+  font-size: 6.5pt;
+  line-height: 1.35;
+}
+.pdf-container.one-page .signature-table {
+  margin-top: 10px;
+}
+.pdf-container.one-page .signature-table td {
   font-size: 7.5pt;
-  line-height: 1.4;
 }
-.pdf-container.two-pages .signature-table {
-  margin-top: 15px;
-}
-.pdf-container.two-pages .signature-table td {
-  font-size: 8pt;
-}
-.pdf-container.two-pages .signature-line {
-  margin-top: 40px;
-  width: 150px;
+.pdf-container.one-page .signature-line {
+  margin-top: 28px;
+  width: 130px;
 }
 
 /* Print CSS for browser window.print() (Selectable PDF Text) */
