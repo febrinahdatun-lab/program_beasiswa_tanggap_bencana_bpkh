@@ -1317,7 +1317,7 @@ async function executePDFDownloadDirectly(item) {
 
   // 1-page PDF options
   const pdfOptions = {
-    margin: [6, 6, 6, 6],
+    margin: [12.7, 12.7, 12.7, 12.7],
     filename: filename,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true, logging: false },

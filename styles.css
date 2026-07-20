@@ -1522,9 +1522,9 @@ a:hover {
 
 /* 1-Page PDF Layout Styles */
 .pdf-container.one-page {
-  width: 210mm;
-  height: 282mm;
-  padding: 6mm 10mm;
+  width: 184.6mm;
+  height: 271.6mm;
+  padding: 0;
   background-color: #ffffff;
   color: #000000;
   box-sizing: border-box;
@@ -1588,7 +1588,7 @@ a:hover {
   color: var(--text-secondary);
 }
 .pdf-container.one-page .pdf-image-wrapper {
-  height: 170px;
+  height: 220px;
   position: relative;
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
@@ -1614,7 +1614,7 @@ a:hover {
   width: 100%;
 }
 .pdf-single-photo-box {
-  height: 170px;
+  height: 220px;
   width: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
@@ -1625,7 +1625,7 @@ a:hover {
   overflow: hidden;
 }
 .pdf-single-photo-box img {
-  max-height: 170px;
+  max-height: 220px;
   max-width: 100%;
   object-fit: contain;
   margin: 0 auto;
@@ -1674,7 +1674,7 @@ a:hover {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 0 !important;
+    margin: 1.27cm !important;
   }
   body {
     background-color: #ffffff !important;
@@ -1691,7 +1691,7 @@ a:hover {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
-    width: 210mm !important;
+    width: 184.6mm !important;
     display: block !important;
     background-color: #ffffff !important;
     padding: 0 !important;
