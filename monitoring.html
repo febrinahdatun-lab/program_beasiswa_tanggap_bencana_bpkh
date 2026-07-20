@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BMM & BPKH - Monitoring Database & Laporan LPJ</title>
+  <link rel="shortcut icon" href="https://drive.google.com/thumbnail?sz=w32-h32&id=1kVg8K0z6s5IEbsBllSv-4tEiOCov7_xF" type="image/x-icon">
   
   <!-- Inter Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -85,6 +86,9 @@
               <option value="Laki-Laki">Laki-Laki</option>
               <option value="Perempuan">Perempuan</option>
             </select>
+            <button id="bulk-download-pdf-btn" class="primary-btn" disabled style="background-color: var(--secondary-color);">
+              <i class="fa-solid fa-file-pdf"></i> Unduh PDF Terpilih (0)
+            </button>
           </div>
         </div>
 
@@ -93,6 +97,7 @@
           <table class="monitoring-table" id="data-table">
             <thead>
               <tr>
+                <th class="checkbox-col"><input type="checkbox" id="check-all"></th>
                 <th class="sortable" data-sort="nama">Nama Responden <i class="fa-solid fa-sort"></i></th>
                 <th class="sortable" data-sort="kampus">Asal Kampus <i class="fa-solid fa-sort"></i></th>
                 <th class="sortable" data-sort="semester">Semester <i class="fa-solid fa-sort"></i></th>
@@ -130,6 +135,17 @@
   <!-- Dynamic Injection Placeholders for drawer and pdf layouts -->
   <div id="drawer-placeholder"></div>
   <div id="pdf-template-placeholder"></div>
+
+  <!-- Bulk Download Progress Modal -->
+  <div class="progress-modal-overlay" id="download-progress-modal">
+    <div class="progress-modal-card">
+      <h4>Mengunduh Laporan PDF</h4>
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="download-progress-bar"></div>
+      </div>
+      <p class="progress-modal-status" id="download-progress-status">Memproses... 0%</p>
+    </div>
+  </div>
 
   <!-- CDN scripts -->
   <!-- html2pdf.js -->

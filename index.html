@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BMM & BPKH - Dashboard LPJ Beasiswa Tanggap Bencana</title>
+  <link rel="shortcut icon" href="https://drive.google.com/thumbnail?sz=w32-h32&id=1kVg8K0z6s5IEbsBllSv-4tEiOCov7_xF" type="image/x-icon">
   
   <!-- Inter Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -100,36 +101,71 @@
         <!-- Charts Grid (Upper Row) -->
         <div class="charts-grid">
           <!-- Jenis Kelamin -->
-          <div class="chart-card glass-card">
-            <h3>Komposisi Jenis Kelamin</h3>
+          <div class="chart-card glass-card" id="card-gender">
+            <div class="chart-header">
+              <h3>Komposisi Jenis Kelamin</h3>
+              <div class="chart-actions-btn-group">
+                <button class="chart-action-btn toggle-table-btn" title="Tampilkan Tabel Data"><i class="fa-solid fa-table"></i></button>
+                <button class="chart-action-btn fullscreen-btn" title="Fullscreen"><i class="fa-solid fa-expand"></i></button>
+              </div>
+            </div>
             <div id="chart-gender" class="chart-wrapper"></div>
+            <div class="chart-data-table-wrapper"></div>
           </div>
           
           <!-- Kampus -->
-          <div class="chart-card glass-card span-2-cols">
-            <h3>Distribusi Asal Kampus</h3>
+          <div class="chart-card glass-card span-2-cols" id="card-campus">
+            <div class="chart-header">
+              <h3>Distribusi Asal Kampus</h3>
+              <div class="chart-actions-btn-group">
+                <button class="chart-action-btn toggle-table-btn" title="Tampilkan Tabel Data"><i class="fa-solid fa-table"></i></button>
+                <button class="chart-action-btn fullscreen-btn" title="Fullscreen"><i class="fa-solid fa-expand"></i></button>
+              </div>
+            </div>
             <div id="chart-campus" class="chart-wrapper"></div>
+            <div class="chart-data-table-wrapper"></div>
           </div>
         </div>
 
         <!-- Charts Grid (Lower Row) -->
         <div class="charts-grid-3">
           <!-- Semester -->
-          <div class="chart-card glass-card">
-            <h3>Komposisi Semester</h3>
+          <div class="chart-card glass-card" id="card-semester">
+            <div class="chart-header">
+              <h3>Komposisi Semester</h3>
+              <div class="chart-actions-btn-group">
+                <button class="chart-action-btn toggle-table-btn" title="Tampilkan Tabel Data"><i class="fa-solid fa-table"></i></button>
+                <button class="chart-action-btn fullscreen-btn" title="Fullscreen"><i class="fa-solid fa-expand"></i></button>
+              </div>
+            </div>
             <div id="chart-semester" class="chart-wrapper"></div>
+            <div class="chart-data-table-wrapper"></div>
           </div>
 
           <!-- Mahasiswa Aktif -->
-          <div class="chart-card glass-card">
-            <h3>Status Keaktifan Mahasiswa</h3>
+          <div class="chart-card glass-card" id="card-active-status">
+            <div class="chart-header">
+              <h3>Status Keaktifan Mahasiswa</h3>
+              <div class="chart-actions-btn-group">
+                <button class="chart-action-btn toggle-table-btn" title="Tampilkan Tabel Data"><i class="fa-solid fa-table"></i></button>
+                <button class="chart-action-btn fullscreen-btn" title="Fullscreen"><i class="fa-solid fa-expand"></i></button>
+              </div>
+            </div>
             <div id="chart-active-status" class="chart-wrapper"></div>
+            <div class="chart-data-table-wrapper"></div>
           </div>
 
           <!-- Orang Tua Income Combined -->
-          <div class="chart-card glass-card">
-            <h3>Komposisi Penghasilan Orang Tua</h3>
+          <div class="chart-card glass-card" id="card-parents-income">
+            <div class="chart-header">
+              <h3>Komposisi Penghasilan Orang Tua</h3>
+              <div class="chart-actions-btn-group">
+                <button class="chart-action-btn toggle-table-btn" title="Tampilkan Tabel Data"><i class="fa-solid fa-table"></i></button>
+                <button class="chart-action-btn fullscreen-btn" title="Fullscreen"><i class="fa-solid fa-expand"></i></button>
+              </div>
+            </div>
             <div id="chart-parents-income" class="chart-wrapper"></div>
+            <div class="chart-data-table-wrapper"></div>
           </div>
         </div>
       </div>

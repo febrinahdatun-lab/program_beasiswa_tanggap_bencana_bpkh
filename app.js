@@ -18,6 +18,9 @@ let appState = {
   activePage: 'dashboard' // 'dashboard' or 'monitoring'
 };
 
+// Global Checklist Selections
+let selectedIds = new Set();
+
 // Colors matching BMM branding
 const BMM_COLORS = {
   purple: '#5c178c',
@@ -27,6 +30,42 @@ const BMM_COLORS = {
   purpleLight: 'rgba(92, 23, 140, 0.08)',
   greenLight: 'rgba(57, 181, 74, 0.08)'
 };
+
+/**
+ * Smart IPK Normalizer & Validator
+ * Standardizes university GPA to 1 digit before comma and 2 digits after (X.XX)
+ * Filters out high school scores, percentages, and texts.
+ */
+function cleanIPK(val) {
+  if (val === undefined || val === null) return 0.0;
+  let str = String(val).replace(/,/g, '.').trim();
+  // Remove text inside parentheses (e.g. "(Semester 1)")
+  str = str.replace(/\([^)]*\)/g, '').trim();
+  // Match numbers (digits and periods)
+  let matches = str.match(/\d+(\.\d+)?/);
+  if (!matches) return 0.0;
+  
+  let numStr = matches[0].replace(/\./g, ''); // Get raw digits
+  if (numStr.length === 0) return 0.0;
+  
+  // Normalize values that start with valid GPA digits (2, 3, 4)
+  let first = numStr.charAt(0);
+  if (first === '2' || first === '3' || first === '4') {
+    if (numStr.length === 1) {
+      return parseFloat(first + ".00");
+    }
+    let second = numStr.charAt(1);
+    let third = numStr.length > 2 ? numStr.charAt(2) : '0';
+    return parseFloat(first + "." + second + third);
+  }
+  
+  // General decimal check
+  let parsed = parseFloat(matches[0]);
+  if (parsed >= 2.0 && parsed <= 4.0) {
+    return parseFloat(parsed.toFixed(2));
+  }
+  return 0.0; // Filter out high school values (e.g., 1780, 91.3)
+}
 
 /**
  * Initialize Application
@@ -100,10 +139,88 @@ function setupCommonEventListeners() {
 }
 
 /**
- * Setup Dashboard Page Listeners
+ * Setup Dashboard Page Listeners for Chart Toolbar actions (Fullscreen & Table View)
  */
 function setupDashboardEventListeners() {
-  // Add dashboard specific events if needed
+  document.querySelectorAll('.chart-action-btn.fullscreen-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const card = e.target.closest('.chart-card');
+      const chartKey = card.id.replace('card-', '');
+      
+      if (card.classList.contains('fullscreen')) {
+        card.classList.remove('fullscreen');
+        document.body.classList.remove('fullscreen-overlay-active');
+        btn.innerHTML = '<i class="fa-solid fa-expand"></i>';
+      } else {
+        // Close any other fullscreen charts
+        document.querySelectorAll('.chart-card.fullscreen').forEach(other => {
+          other.classList.remove('fullscreen');
+          const otherBtn = other.querySelector('.fullscreen-btn');
+          if (otherBtn) otherBtn.innerHTML = '<i class="fa-solid fa-expand"></i>';
+        });
+        card.classList.add('fullscreen');
+        document.body.classList.add('fullscreen-overlay-active');
+        btn.innerHTML = '<i class="fa-solid fa-compress"></i>';
+      }
+      
+      // Trigger resize for ApexCharts to fit the new container size
+      if (appState.charts[chartKey]) {
+        setTimeout(() => {
+          appState.charts[chartKey].windowResize();
+        }, 150);
+      }
+    });
+  });
+
+  document.querySelectorAll('.chart-action-btn.toggle-table-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const card = e.target.closest('.chart-card');
+      const chartKey = card.id.replace('card-', '');
+      
+      if (card.classList.contains('show-table')) {
+        card.classList.remove('show-table');
+        btn.classList.remove('active');
+      } else {
+        card.classList.add('show-table');
+        btn.classList.add('active');
+        renderChartDataTable(card, chartKey);
+      }
+    });
+  });
+}
+
+/**
+ * Renders an uppercase data table view of the respondents represented in a chart
+ */
+function renderChartDataTable(cardEl, chartKey) {
+  const tableWrapper = cardEl.querySelector('.chart-data-table-wrapper');
+  if (!tableWrapper) return;
+
+  // Render all active respondents inside a scrollable table with uppercase layout
+  tableWrapper.innerHTML = `
+    <table class="chart-data-table">
+      <thead>
+        <tr>
+          <th>Nama Lengkap</th>
+          <th>Jenis Kelamin</th>
+          <th>Nama Kampus</th>
+          <th>Semester</th>
+          <th>Status Keaktifan</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${appState.rawData.map(item => `
+          <tr>
+            <td><strong>${item.nama || ''}</strong></td>
+            <td>${item.jenis_kelamin || ''}</td>
+            <td>${item.kampus || ''}</td>
+            <td>Semester ${item.semester || ''}</td>
+            <td>${item.mhs_aktif || ''}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
 }
 
 /**
@@ -128,7 +245,6 @@ async function injectTemplates() {
     }
   } catch (error) {
     console.error('Failed to inject HTML fragments:', error);
-    // User-friendly feedback if loading locally via file:// protocol
     if (window.location.protocol === 'file:') {
       alert('Pemberitahuan Developer: Fitur sliding panel & download PDF memerlukan server lokal (HTTP). Gunakan Live Server atau python web server untuk menjalankannya secara lokal.');
     }
@@ -136,10 +252,9 @@ async function injectTemplates() {
 }
 
 /**
- * Setup Monitoring Page Listeners (attached after template injection)
+ * Setup Monitoring Page Event Listeners
  */
 function setupMonitoringEventListeners() {
-  // Drawer close/overlay controls
   const closeBtn = document.getElementById('canvas-close-btn');
   if (closeBtn) closeBtn.addEventListener('click', closeDetailsCanvas);
   
@@ -186,14 +301,13 @@ function setupMonitoringEventListeners() {
     }
   });
 
-  // Table Sorting headers
+  // Sorting columns
   document.querySelectorAll('.monitoring-table th.sortable').forEach(th => {
     th.addEventListener('click', () => {
       const column = th.getAttribute('data-sort');
       const direction = appState.currentSort.column === column && appState.currentSort.direction === 'asc' ? 'desc' : 'asc';
       appState.currentSort = { column, direction };
       
-      // Update sort icons
       document.querySelectorAll('.monitoring-table th i').forEach(icon => {
         icon.className = 'fa-solid fa-sort';
       });
@@ -203,6 +317,31 @@ function setupMonitoringEventListeners() {
       sortAndRenderTable();
     });
   });
+
+  // Check-all checkbox listener
+  const checkAll = document.getElementById('check-all');
+  if (checkAll) {
+    checkAll.addEventListener('change', (e) => {
+      const checked = e.target.checked;
+      const visibleCheckboxes = document.querySelectorAll('.row-checkbox');
+      visibleCheckboxes.forEach(cb => {
+        const id = parseInt(cb.getAttribute('data-id'));
+        cb.checked = checked;
+        if (checked) {
+          selectedIds.add(id);
+        } else {
+          selectedIds.delete(id);
+        }
+      });
+      updateBulkDownloadButton();
+    });
+  }
+
+  // Bulk download button
+  const bulkBtn = document.getElementById('bulk-download-pdf-btn');
+  if (bulkBtn) {
+    bulkBtn.addEventListener('click', downloadSelectedPDFs);
+  }
 }
 
 /**
@@ -221,7 +360,6 @@ async function loadData(forceRefresh = false) {
   try {
     let data = null;
 
-    // Check session cache first (if not forcing refresh)
     if (!forceRefresh) {
       const cached = sessionStorage.getItem('bmm_data_cache');
       if (cached) {
@@ -233,7 +371,6 @@ async function loadData(forceRefresh = false) {
       }
     }
 
-    // Fetch from live API or mock data fallback
     if (!data) {
       if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
         const response = await fetch(`${CONFIG.API_URL}?action=getData`);
@@ -246,24 +383,30 @@ async function loadData(forceRefresh = false) {
         const sheetMeta = document.getElementById('meta-sheet-name');
         if (sheetMeta) sheetMeta.innerText = 'Google Sheets (Live)';
       } else {
-        // Fallback to mockData.js
-        await new Promise(resolve => setTimeout(resolve, 600)); // Latency feel
+        await new Promise(resolve => setTimeout(resolve, 600));
         data = MOCK_DATA;
         if (statusText) statusText.innerText = 'Mode Demo (Mock Data)';
         const sheetMeta = document.getElementById('meta-sheet-name');
         if (sheetMeta) sheetMeta.innerText = 'Contoh File CSV';
       }
 
-      // Cache data for future page loads
       sessionStorage.setItem('bmm_data_cache', JSON.stringify(data));
     }
 
-    appState.rawData = data;
-    appState.filteredData = [...data];
+    // Clean & Standardize IPK immediately on loading data
+    appState.rawData = data.map(item => {
+      const cleanedVal = cleanIPK(item.ipk_display || item.ipk);
+      return {
+        ...item,
+        ipk: cleanedVal,
+        ipk_display: cleanedVal === 0 ? "0,00" : cleanedVal.toFixed(2).replace('.', ',')
+      };
+    });
     
-    // Set campus filter dropdowns (only on monitoring page)
+    appState.filteredData = [...appState.rawData];
+    
     if (appState.activePage === 'monitoring') {
-      const uniqueCampuses = [...new Set(data.map(item => item.kampus).filter(Boolean))].sort();
+      const uniqueCampuses = [...new Set(appState.rawData.map(item => item.kampus).filter(Boolean))].sort();
       appState.campuses = uniqueCampuses;
       populateCampusFilter(uniqueCampuses);
       applyTableFilters();
@@ -278,7 +421,6 @@ async function loadData(forceRefresh = false) {
     if (statusIndicator) statusIndicator.className = 'status-indicator offline';
     if (statusText) statusText.innerText = 'Koneksi Gagal';
     
-    // Auto fallback to local mock data
     if (!CONFIG.USE_MOCK_DATA) {
       console.warn('API error. Falling back to mock data...');
       CONFIG.USE_MOCK_DATA = true;
@@ -311,8 +453,10 @@ function updateDashboard() {
   const totalEl = document.getElementById('kpi-total-responden');
   if (totalEl) totalEl.innerText = total;
 
-  // Calculate Top 3 IPK
-  const sortedByIpk = [...appState.rawData].sort((a, b) => b.ipk - a.ipk);
+  // Calculate Top 3 IPK (excluding zero values)
+  const sortedByIpk = [...appState.rawData]
+    .filter(item => item.ipk > 0)
+    .sort((a, b) => b.ipk - a.ipk);
   const top3 = sortedByIpk.slice(0, 3);
   
   const listContainer = document.getElementById('kpi-top-ipk-list');
@@ -338,13 +482,11 @@ function updateDashboard() {
  * Render ApexCharts widgets (Dashboard Page Only)
  */
 function renderCharts() {
-  // Ensure chart wrappers are in DOM before rendering
   if (!document.querySelector("#chart-gender")) return;
 
   const themeMode = appState.isDarkTheme ? 'dark' : 'light';
   const labelColor = appState.isDarkTheme ? '#94a3b8' : '#64748b';
   
-  // Destroy existing charts
   Object.values(appState.charts).forEach(chart => {
     if (chart && typeof chart.destroy === 'function') chart.destroy();
   });
@@ -378,7 +520,7 @@ function renderCharts() {
   appState.charts.gender = new ApexCharts(document.querySelector("#chart-gender"), genderOptions);
   appState.charts.gender.render();
 
-  // 2. Campus column chart
+  // 2. Campus Column Chart
   const campusCounts = countOccurrences(appState.rawData, 'kampus');
   const sortedCampuses = Object.entries(campusCounts).sort((a, b) => b[1] - a[1]);
   const campusLabels = sortedCampuses.map(item => item[0]);
@@ -413,15 +555,70 @@ function renderCharts() {
   appState.charts.campus = new ApexCharts(document.querySelector("#chart-campus"), campusOptions);
   appState.charts.campus.render();
 
-  // 3. Semester Donut
-  const semesterCounts = countOccurrences(appState.rawData, 'semester');
+  // 3. Semester Column Chart (Custom sorted Semester 1 to Semester >8)
+  const semesterCategories = [
+    'Semester 1', 'Semester 2', 'Semester 3', 'Semester 4', 
+    'Semester 5', 'Semester 6', 'Semester 7', 'Semester 8', 'Semester >8'
+  ];
+  
+  const semesterMap = {};
+  semesterCategories.forEach(cat => { semesterMap[cat] = 0; });
+  
+  appState.rawData.forEach(item => {
+    let sem = String(item.semester || "").trim();
+    if (!sem) return;
+    
+    let key = '';
+    if (sem === '1') key = 'Semester 1';
+    else if (sem === '2') key = 'Semester 2';
+    else if (sem === '3') key = 'Semester 3';
+    else if (sem === '4') key = 'Semester 4';
+    else if (sem === '5') key = 'Semester 5';
+    else if (sem === '6') key = 'Semester 6';
+    else if (sem === '7') key = 'Semester 7';
+    else if (sem === '8') key = 'Semester 8';
+    else if (sem === '>8' || sem === '8>' || sem.includes('>') || parseInt(sem) > 8) {
+      key = 'Semester >8';
+    } else {
+      key = 'Semester ' + sem;
+      if (semesterMap[key] === undefined) {
+        semesterMap[key] = 0;
+      }
+    }
+    if (key) semesterMap[key]++;
+  });
+  
+  const semesterSeriesData = semesterCategories.map(cat => semesterMap[cat] || 0);
+  
   const semesterOptions = {
-    series: Object.values(semesterCounts),
-    labels: Object.keys(semesterCounts).map(sem => `Semester ${sem}`),
-    chart: { type: 'donut', height: 260 },
+    series: [{ name: 'Responden', data: semesterSeriesData }],
+    chart: { type: 'bar', height: 260, toolbar: { show: false } },
     theme: { mode: themeMode },
-    colors: [BMM_COLORS.purple, '#3b82f6', BMM_COLORS.green, '#f59e0b', '#ec4899', '#64748b'],
-    legend: { position: 'bottom', labels: { colors: labelColor } }
+    colors: [
+      BMM_COLORS.purple, '#3b82f6', BMM_COLORS.green, '#f59e0b', 
+      '#ec4899', '#6366f1', '#14b8a6', '#f43f5e', '#64748b'
+    ],
+    plotOptions: {
+      bar: {
+        borderRadius: 4,
+        horizontal: false,
+        columnWidth: '55%',
+        distributed: true
+      }
+    },
+    dataLabels: { enabled: true },
+    legend: { show: false },
+    xaxis: {
+      categories: semesterCategories,
+      labels: {
+        show: true,
+        rotate: -30,
+        style: { colors: labelColor, fontSize: '9px' }
+      }
+    },
+    yaxis: {
+      labels: { style: { colors: labelColor } }
+    }
   };
   appState.charts.semester = new ApexCharts(document.querySelector("#chart-semester"), semesterOptions);
   appState.charts.semester.render();
@@ -577,7 +774,7 @@ function renderTable() {
   if (total === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="6" class="table-empty-state">
+        <td colspan="7" class="table-empty-state">
           <i class="fa-solid fa-folder-open"></i>
           <p>Tidak ada data penerima yang cocok dengan pencarian.</p>
         </td>
@@ -588,14 +785,34 @@ function renderTable() {
   }
 
   const pageData = appState.filteredData.slice(startIdx, endIdx);
+  
+  // Update header check-all checkbox state based on visible rows
+  const checkAll = document.getElementById('check-all');
+  if (checkAll) {
+    const pageIds = pageData.map(item => item.id);
+    checkAll.checked = pageIds.length > 0 && pageIds.every(id => selectedIds.has(id));
+  }
+
   pageData.forEach(item => {
+    const isChecked = selectedIds.has(item.id) ? 'checked' : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td class="checkbox-col" onclick="event.stopPropagation();">
+        <input type="checkbox" class="row-checkbox" data-id="${item.id}" ${isChecked}>
+      </td>
       <td><strong>${item.nama}</strong></td>
       <td>${item.kampus}</td>
       <td>Semester ${item.semester}</td>
-      <td><span class="rank-badge" style="font-size:0.8rem; padding: 2px 6px; border-radius:4px; background:var(--primary-light); color:var(--primary-color);">${item.ipk_display}</span></td>
-      <td><a href="${formatWhatsAppLink(item.whatsapp)}" target="_blank" class="wa-action-link" style="font-size:0.75rem;"><i class="fa-brands fa-whatsapp"></i> ${item.whatsapp}</a></td>
+      <td>
+        <span class="rank-badge" style="font-size:0.8rem; padding: 2px 6px; border-radius:4px; background:var(--primary-light); color:var(--primary-color);">
+          ${item.ipk_display}
+        </span>
+      </td>
+      <td>
+        <a href="${formatWhatsAppLink(item.whatsapp)}" target="_blank" class="wa-action-link" style="font-size:0.75rem;">
+          <i class="fa-brands fa-whatsapp"></i> ${item.whatsapp}
+        </a>
+      </td>
       <td>
         <button class="action-view-btn" data-id="${item.id}">
           <i class="fa-solid fa-folder-open"></i> Buka Canvas
@@ -603,9 +820,15 @@ function renderTable() {
       </td>
     `;
     
-    // Bind click open drawer
+    // Checkbox click toggle selection
+    const cb = tr.querySelector('.row-checkbox');
+    cb.addEventListener('change', (e) => {
+      toggleRowSelection(item.id, e.target.checked);
+    });
+
+    // Row click opens details (ignores clicks directly on checkbox or whatsapp links)
     tr.addEventListener('click', (e) => {
-      if (e.target.tagName !== 'A' && e.target.parentElement.tagName !== 'A') {
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'A' && e.target.parentElement.tagName !== 'A') {
         openDetailsCanvas(item);
       }
     });
@@ -615,6 +838,35 @@ function renderTable() {
 
   const totalPages = Math.ceil(total / appState.rowsPerPage);
   updatePaginationControls(totalPages);
+}
+
+/**
+ * Handle Checklist selection tracking
+ */
+function toggleRowSelection(id, checked) {
+  if (checked) {
+    selectedIds.add(id);
+  } else {
+    selectedIds.delete(id);
+  }
+  updateBulkDownloadButton();
+  
+  // Sync check-all checkbox header state
+  const checkAll = document.getElementById('check-all');
+  if (checkAll) {
+    const startIdx = (appState.currentPage - 1) * appState.rowsPerPage;
+    const endIdx = Math.min(startIdx + appState.rowsPerPage, appState.filteredData.length);
+    const pageData = appState.filteredData.slice(startIdx, endIdx);
+    const pageIds = pageData.map(item => item.id);
+    checkAll.checked = pageIds.length > 0 && pageIds.every(pid => selectedIds.has(pid));
+  }
+}
+
+function updateBulkDownloadButton() {
+  const btn = document.getElementById('bulk-download-pdf-btn');
+  if (!btn) return;
+  btn.disabled = selectedIds.size === 0;
+  btn.innerText = `Unduh PDF Terpilih (${selectedIds.size})`;
 }
 
 /**
@@ -684,7 +936,7 @@ function openDetailsCanvas(respondent) {
   appState.selectedRespondent = respondent;
   
   const nameHead = document.getElementById('canvas-nama-header');
-  if (!nameHead) return; // Guard in case dynamic load is slow or failed
+  if (!nameHead) return;
 
   document.getElementById('canvas-nama-header').innerText = respondent.nama;
   document.getElementById('canvas-kampus-header').innerText = respondent.kampus;
@@ -728,7 +980,7 @@ function closeDetailsCanvas() {
 }
 
 /**
- * Individual attachment loaders
+ * Individual attachment loader for Canvas Details
  */
 function loadFilePreview(url, previewBoxId, openBtnId) {
   const box = document.getElementById(previewBoxId);
@@ -756,6 +1008,7 @@ function loadFilePreview(url, previewBoxId, openBtnId) {
   const img = new Image();
   img.onload = () => {
     box.innerHTML = '';
+    img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
     box.appendChild(img);
   };
   img.onerror = () => {
@@ -765,7 +1018,7 @@ function loadFilePreview(url, previewBoxId, openBtnId) {
 }
 
 /**
- * Gallery loader
+ * Gallery loader for House photos
  */
 function loadMultipleFilePreviews(urlsStr, previewBoxId, linksContainerId) {
   const box = document.getElementById(previewBoxId);
@@ -810,6 +1063,7 @@ function loadMultipleFilePreviews(urlsStr, previewBoxId, linksContainerId) {
     img.onload = () => {
       imgWrapper.className = '';
       imgWrapper.innerHTML = '';
+      img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
       imgWrapper.appendChild(img);
     };
     img.onerror = () => {
@@ -820,7 +1074,7 @@ function loadMultipleFilePreviews(urlsStr, previewBoxId, linksContainerId) {
 }
 
 /**
- * Google Apps Script Proxy file retriever
+ * Google Apps Script Proxy file retriever with PDF contentType layout styling
  */
 async function fetchBase64FromAPI(fileId, containerElement, isGalleryItem = false) {
   if (!CONFIG.API_URL || CONFIG.USE_MOCK_DATA) {
@@ -833,8 +1087,22 @@ async function fetchBase64FromAPI(fileId, containerElement, isGalleryItem = fals
     const result = await response.json();
     
     if (result.status === 'success') {
+      if (result.contentType === 'application/pdf') {
+        containerElement.innerHTML = `
+          <div class="pdf-doc-placeholder">
+            <i class="fa-solid fa-file-pdf"></i>
+            <span>DOKUMEN REKOMENDASI (PDF)</span>
+            <span style="font-size: 7px; color: var(--text-secondary); margin-top: 2px;">Tinjau via tombol buka</span>
+          </div>
+        `;
+        return;
+      }
+      
       const img = document.createElement('img');
       img.src = `data:${result.contentType};base64,${result.base64}`;
+      img.onload = () => {
+        img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+      };
       if (isGalleryItem) containerElement.className = '';
       containerElement.innerHTML = '';
       containerElement.appendChild(img);
@@ -847,7 +1115,7 @@ async function fetchBase64FromAPI(fileId, containerElement, isGalleryItem = fals
 }
 
 /**
- * Exporter of PDF layouts using html2pdf.js compiler
+ * Single PDF Report Downloader Button Action
  */
 async function downloadRespondentPDF() {
   const item = appState.selectedRespondent;
@@ -860,53 +1128,7 @@ async function downloadRespondentPDF() {
   downloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mempersiapkan PDF...';
 
   try {
-    // Fill printable fields
-    document.getElementById('pdf-reg-id').innerText = item.id;
-    document.getElementById('pdf-timestamp').innerText = item.timestamp;
-    document.getElementById('pdf-nama').innerText = item.nama;
-    document.getElementById('pdf-sig-nama').innerText = item.nama;
-    
-    document.getElementById('pdf-kampus').innerText = item.kampus;
-    document.getElementById('pdf-semester').innerText = item.semester;
-    document.getElementById('pdf-ipk').innerText = item.ipk_display;
-    document.getElementById('pdf-whatsapp').innerText = item.whatsapp;
-    document.getElementById('pdf-alamat').innerText = item.alamat;
-    document.getElementById('pdf-tempat-tinggal').innerText = item.tempat_tinggal;
-    document.getElementById('pdf-ukt').innerText = item.ukt;
-
-    document.getElementById('pdf-ayah').innerText = item.nama_ayah || '-';
-    document.getElementById('pdf-job-ayah').innerText = item.pekerjaan_ayah || '-';
-    document.getElementById('pdf-income-ayah').innerText = item.penghasilan_ayah || '-';
-    
-    document.getElementById('pdf-ibu').innerText = item.nama_ibu || '-';
-    document.getElementById('pdf-job-ibu').innerText = item.pekerjaan_ibu || '-';
-    document.getElementById('pdf-income-ibu').innerText = item.penghasilan_ibu || '-';
-    
-    document.getElementById('pdf-sig-date').innerText = new Date().toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric'
-    });
-
-    // Fetch and load image components
-    await Promise.all([
-      loadPDFImage(item.ktp, 'pdf-img-ktp', 'LAMPIRAN 1: FOTO KTP'),
-      loadPDFImage(item.surat_rekomendasi, 'pdf-img-rekomendasi', 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
-      loadPDFGallery(item.foto_rumah, 'pdf-img-rumah')
-    ]);
-
-    const element = document.getElementById('pdf-report-template');
-    element.style.display = 'block';
-
-    const pdfOptions = {
-      margin: [10, 10, 10, 10],
-      filename: `Formulir_Pemulihan_${item.nama.replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    await html2pdf().set(pdfOptions).from(element).save();
-    element.style.display = 'none';
-
+    await executePDFDownloadDirectly(item);
   } catch (error) {
     console.error('Error generating PDF:', error);
     alert('Gagal mengunduh formulir PDF.');
@@ -916,6 +1138,120 @@ async function downloadRespondentPDF() {
   }
 }
 
+/**
+ * Sequentially download checked files showing a beautiful progress bar overlay modal
+ */
+async function downloadSelectedPDFs() {
+  if (selectedIds.size === 0) return;
+  
+  const ids = Array.from(selectedIds);
+  const total = ids.length;
+  
+  const modal = document.getElementById('download-progress-modal');
+  const bar = document.getElementById('download-progress-bar');
+  const status = document.getElementById('download-progress-status');
+  
+  if (modal) modal.classList.add('show');
+  
+  const bulkBtn = document.getElementById('bulk-download-pdf-btn');
+  if (bulkBtn) bulkBtn.disabled = true;
+
+  try {
+    for (let i = 0; i < total; i++) {
+      const id = ids[i];
+      const respondent = appState.rawData.find(item => item.id === id);
+      if (!respondent) continue;
+      
+      const percent = Math.round((i / total) * 100);
+      if (bar) bar.style.width = `${percent}%`;
+      if (status) status.innerText = `Mengunduh Laporan ${i + 1} dari ${total} (${percent}%) - ${respondent.nama}`;
+      
+      appState.selectedRespondent = respondent;
+      await executePDFDownloadDirectly(respondent);
+      
+      // Delay to let browser trigger download and render images cleanly
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+    
+    if (bar) bar.style.width = '100%';
+    if (status) status.innerText = `Selesai Mengunduh ${total} Laporan!`;
+    
+    setTimeout(() => {
+      if (modal) modal.classList.remove('show');
+      selectedIds.clear();
+      updateBulkDownloadButton();
+      
+      const checkAll = document.getElementById('check-all');
+      if (checkAll) checkAll.checked = false;
+      
+      renderTable();
+    }, 1200);
+
+  } catch (error) {
+    console.error('Error during bulk download:', error);
+    alert('Terjadi kesalahan saat mengunduh beberapa PDF.');
+    if (modal) modal.classList.remove('show');
+  } finally {
+    if (bulkBtn) bulkBtn.disabled = false;
+  }
+}
+
+/**
+ * Compiles dynamic fields and compiles them into a single A4 optimized PDF page using html2pdf
+ */
+async function executePDFDownloadDirectly(item) {
+  // Fill printable A4 fields
+  document.getElementById('pdf-reg-id').innerText = item.id;
+  document.getElementById('pdf-timestamp').innerText = item.timestamp;
+  document.getElementById('pdf-nama').innerText = item.nama;
+  document.getElementById('pdf-sig-nama').innerText = item.nama;
+  
+  document.getElementById('pdf-kampus').innerText = item.kampus;
+  document.getElementById('pdf-semester').innerText = item.semester;
+  document.getElementById('pdf-ipk').innerText = item.ipk_display;
+  document.getElementById('pdf-whatsapp').innerText = item.whatsapp;
+  document.getElementById('pdf-alamat').innerText = item.alamat;
+  document.getElementById('pdf-tempat-tinggal').innerText = item.tempat_tinggal;
+  document.getElementById('pdf-ukt').innerText = item.ukt;
+
+  document.getElementById('pdf-ayah').innerText = item.nama_ayah || '-';
+  document.getElementById('pdf-job-ayah').innerText = item.pekerjaan_ayah || '-';
+  document.getElementById('pdf-income-ayah').innerText = item.penghasilan_ayah || '-';
+  
+  document.getElementById('pdf-ibu').innerText = item.nama_ibu || '-';
+  document.getElementById('pdf-job-ibu').innerText = item.pekerjaan_ibu || '-';
+  document.getElementById('pdf-income-ibu').innerText = item.penghasilan_ibu || '-';
+  
+  document.getElementById('pdf-sig-date').innerText = new Date().toLocaleDateString('id-ID', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+
+  // Load and cache PDF attachment images with orientation detection
+  await Promise.all([
+    loadPDFImage(item.ktp, 'pdf-img-ktp', 'LAMPIRAN 1: FOTO KTP'),
+    loadPDFImage(item.surat_rekomendasi, 'pdf-img-rekomendasi', 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
+    loadPDFGallery(item.foto_rumah, 'pdf-img-rumah')
+  ]);
+
+  const element = document.getElementById('pdf-report-template');
+  element.style.display = 'block';
+
+  // 1-page PDF options
+  const pdfOptions = {
+    margin: [6, 6, 6, 6],
+    filename: `Formulir_Pemulihan_${item.nama.replace(/\s+/g, '_')}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  await html2pdf().set(pdfOptions).from(element).save();
+  element.style.display = 'none';
+}
+
+/**
+ * Dynamic loader of PDF images supporting PDF placeholder boxes and auto-orientation detection
+ */
 async function loadPDFImage(url, targetWrapperId, labelText) {
   const wrapper = document.getElementById(targetWrapperId);
   if (!wrapper) return;
@@ -937,7 +1273,25 @@ async function loadPDFImage(url, targetWrapperId, labelText) {
       const response = await fetch(`${CONFIG.API_URL}?action=getFile&id=${fileId}`);
       const result = await response.json();
       if (result.status === 'success') {
-        wrapper.innerHTML = `<img src="data:${result.contentType};base64,${result.base64}" alt="${labelText}">`;
+        if (result.contentType === 'application/pdf') {
+          wrapper.innerHTML = `
+            <div class="pdf-doc-placeholder">
+              <i class="fa-solid fa-file-pdf"></i>
+              <strong>LAMPIRAN REKOMENDASI (PDF)</strong>
+              <span style="font-size:7pt; color: #4b5563; margin-top:2px;">Dokumen asli terlampir secara elektronik</span>
+            </div>
+          `;
+          return;
+        }
+        
+        const img = document.createElement('img');
+        img.src = `data:${result.contentType};base64,${result.base64}`;
+        img.alt = labelText;
+        img.onload = () => {
+          img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+        };
+        wrapper.innerHTML = '';
+        wrapper.appendChild(img);
         return;
       }
     } catch (err) {
@@ -945,10 +1299,21 @@ async function loadPDFImage(url, targetWrapperId, labelText) {
     }
   }
 
-  // Fallback
-  wrapper.innerHTML = `<img src="https://drive.google.com/thumbnail?sz=w600&id=${fileId}" alt="${labelText}" crossorigin="anonymous">`;
+  // Fallback public thumbnail
+  const img = document.createElement('img');
+  img.src = `https://drive.google.com/thumbnail?sz=w600&id=${fileId}`;
+  img.alt = labelText;
+  img.onload = () => {
+    img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+  };
+  img.setAttribute('crossorigin', 'anonymous');
+  wrapper.innerHTML = '';
+  wrapper.appendChild(img);
 }
 
+/**
+ * Dynamic loader of PDF photo galleries supporting auto-orientation detection
+ */
 async function loadPDFGallery(urlsStr, targetWrapperId) {
   const wrapper = document.getElementById(targetWrapperId);
   if (!wrapper) return;
@@ -978,6 +1343,9 @@ async function loadPDFGallery(urlsStr, targetWrapperId) {
           const img = document.createElement('img');
           img.src = `data:${result.contentType};base64,${result.base64}`;
           img.alt = "Foto Rumah Terdampak";
+          img.onload = () => {
+            img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+          };
           wrapper.appendChild(img);
           imageLoaded = true;
         }
@@ -991,6 +1359,9 @@ async function loadPDFGallery(urlsStr, targetWrapperId) {
       img.src = `https://drive.google.com/thumbnail?sz=w400&id=${fileId}`;
       img.alt = "Foto Rumah Terdampak";
       img.setAttribute('crossorigin', 'anonymous');
+      img.onload = () => {
+        img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+      };
       wrapper.appendChild(img);
     }
   }
