@@ -1092,12 +1092,12 @@ a:hover {
 }
 
 .logo-cell-left {
-  width: 120px;
+  width: 180px;
   text-align: left;
 }
 
 .logo-cell-left img {
-  height: 55px;
+  height: 68px;
   object-fit: contain;
 }
 
@@ -1523,12 +1523,13 @@ a:hover {
 /* 1-Page PDF Layout Styles */
 .pdf-container.one-page {
   width: 210mm;
-  height: 297mm;
+  height: 282mm;
   padding: 6mm 10mm;
   background-color: #ffffff;
   color: #000000;
   box-sizing: border-box;
   position: relative;
+  overflow: hidden;
 }
 .pdf-container.one-page .pdf-header-divider {
   margin-top: 5px;
@@ -1587,7 +1588,7 @@ a:hover {
   color: var(--text-secondary);
 }
 .pdf-container.one-page .pdf-image-wrapper {
-  height: 90px;
+  height: 170px;
   position: relative;
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
@@ -1613,7 +1614,7 @@ a:hover {
   width: 100%;
 }
 .pdf-single-photo-box {
-  height: 90px;
+  height: 170px;
   width: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
@@ -1624,7 +1625,7 @@ a:hover {
   overflow: hidden;
 }
 .pdf-single-photo-box img {
-  max-height: 90px;
+  max-height: 170px;
   max-width: 100%;
   object-fit: contain;
   margin: 0 auto;
@@ -1671,6 +1672,10 @@ a:hover {
 
 /* Print CSS for browser window.print() (Selectable PDF Text) */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 0 !important;
+  }
   body {
     background-color: #ffffff !important;
     color: #000000 !important;
