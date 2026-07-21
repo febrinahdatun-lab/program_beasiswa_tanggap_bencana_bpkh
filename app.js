@@ -1574,14 +1574,70 @@ async function printAllCombinedPDF() {
     return;
   }
 
+  // Direct high-speed Drive thumbnail image injector to avoid API rate-limit bottlenecks
+  function injectDirectThumbnail(url, boxElement, altText) {
+    if (!url) {
+      boxElement.innerHTML = '<span class="image-placeholder">Tidak diunggah</span>';
+      return;
+    }
+    const fileId = extractDriveId(url);
+    if (!fileId) {
+      boxElement.innerHTML = '<span class="image-placeholder">ID tidak valid</span>';
+      return;
+    }
+    const img = document.createElement('img');
+    img.src = `https://drive.google.com/thumbnail?sz=w800&id=${fileId}`;
+    img.alt = altText;
+    img.onload = () => {
+      img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+    };
+    boxElement.innerHTML = '';
+    boxElement.appendChild(img);
+  }
+
+  // Direct high-speed gallery injector
+  function injectDirectGallery(urlsStr, boxElement) {
+    if (!urlsStr) {
+      boxElement.innerHTML = '<span class="image-placeholder">Tidak diunggah</span>';
+      return;
+    }
+    const urls = urlsStr.split(',').map(u => u.trim()).filter(Boolean);
+    if (urls.length === 0) {
+      boxElement.innerHTML = '<span class="image-placeholder">Tidak diunggah</span>';
+      return;
+    }
+    if (urls.length === 1) {
+      boxElement.className = 'pdf-single-photo-container';
+      boxElement.innerHTML = `<div class="pdf-single-photo-box" style="height:220px;"></div>`;
+      injectDirectThumbnail(urls[0], boxElement.firstChild, "Foto Rumah");
+    } else {
+      boxElement.className = 'pdf-document-container';
+      boxElement.innerHTML = urls.map((url, idx) => `
+        <div class="pdf-doc-box">
+          <h6>LAMPIRAN RUMAH ${idx + 1}</h6>
+          <div class="pdf-image-wrapper" style="height:220px;"></div>
+        </div>
+      `).join('');
+      const wrappers = boxElement.querySelectorAll('.pdf-image-wrapper');
+      urls.forEach((url, idx) => {
+        injectDirectThumbnail(url, wrappers[idx], `Foto Rumah ${idx + 1}`);
+      });
+    }
+  }
+
   try {
+    // Generate all A4 templates in the DOM instantly
     for (let i = 0; i < total; i++) {
       const item = appState.rawData[i];
-      const percent = Math.round((i / total) * 100);
-      if (bar) bar.style.width = `${percent}%`;
-      if (status) status.innerText = `Memproses Dokumen ${i + 1} dari ${total} (${percent}%) - ${item.nama}`;
       
-      // Clone original template structure
+      if (i % 10 === 0 || i === total - 1) {
+        const percent = Math.round((i / total) * 50);
+        if (bar) bar.style.width = `${percent}%`;
+        if (status) status.innerText = `Menyusun template halaman ${i + 1} dari ${total} (${percent}%) - ${item.nama}`;
+        // Small yield to UI thread to keep the browser responsive
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      
       const clone = originalTemplate.cloneNode(true);
       clone.removeAttribute('id');
       
@@ -1616,33 +1672,28 @@ async function printAllCombinedPDF() {
       });
       fillText('#pdf-sig-date', sigDateVal);
 
-      // Re-assign wrapper IDs dynamically to load images for this clone
-      const ktpWrapper = clone.querySelector('#pdf-img-ktp');
-      if (ktpWrapper) ktpWrapper.id = `bulk-all-ktp-${i}`;
+      // Inject images directly using rapid URLs
+      const ktpBox = clone.querySelector('#pdf-img-ktp');
+      if (ktpBox) injectDirectThumbnail(item.ktp, ktpBox, "Foto KTP");
       
-      const rekomWrapper = clone.querySelector('#pdf-img-rekomendasi');
-      if (rekomWrapper) rekomWrapper.id = `bulk-all-rekom-${i}`;
+      const rekomBox = clone.querySelector('#pdf-img-rekomendasi');
+      if (rekomBox) injectDirectThumbnail(item.surat_rekomendasi, rekomBox, "Surat Rekomendasi");
       
-      const rumahWrapper = clone.querySelector('#pdf-img-rumah');
-      if (rumahWrapper) rumahWrapper.id = `bulk-all-rumah-${i}`;
+      const rumahBox = clone.querySelector('#pdf-img-rumah');
+      if (rumahBox) injectDirectGallery(item.foto_rumah, rumahBox);
       
       bulkWrapper.appendChild(clone);
-
-      // Load all files
-      await Promise.all([
-        loadPDFImage(item.ktp, `bulk-all-ktp-${i}`, 'LAMPIRAN 1: FOTO KTP'),
-        loadPDFImage(item.surat_rekomendasi, `bulk-all-rekom-${i}`, 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
-        loadPDFGallery(item.foto_rumah, `bulk-all-rumah-${i}`)
-      ]);
-      
-      // Delay slightly between files to protect browser resources
-      await new Promise(resolve => setTimeout(resolve, 50));
     }
     
-    if (bar) bar.style.width = '100%';
-    if (status) status.innerText = `Menyiapkan print dialog untuk ${total} halaman...`;
+    // Smooth progress simulation while browser fetches images in parallel
+    for (let p = 50; p <= 100; p += 10) {
+      if (bar) bar.style.width = `${p}%`;
+      if (status) status.innerText = `Mengunduh berkas lampiran gambar... (${p}%)`;
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (status) status.innerText = `Membuka dialog cetak PDF...`;
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     const oldTitle = document.title;
     document.title = "LAPORAN_LPJ_MASSAL_BEASISWA_BPKH";
