@@ -989,6 +989,35 @@ function closeDetailsCanvas() {
 }
 
 /**
+ * Helper to check if a URL or MIME type represents a valid image/PDF file,
+ * and filters out video (.mp4, .mov, etc) and audio (.mp3, .wav, etc) files.
+ */
+function isMediaImageOrPdf(url, contentType) {
+  if (contentType) {
+    const mime = String(contentType).toLowerCase().trim();
+    if (mime.startsWith('video/') || mime.startsWith('audio/')) {
+      return false;
+    }
+  }
+  
+  if (url) {
+    const str = String(url).toLowerCase().trim();
+    const forbiddenExts = [
+      '.mp4', '.m4v', '.mov', '.avi', '.mkv', '.webm', '.flv', '.3gp', '.wmv',
+      '.mp3', '.wav', '.aac', '.m4a', '.ogg', '.flac', '.wma', '.mid'
+    ];
+    for (let i = 0; i < forbiddenExts.length; i++) {
+      const ext = forbiddenExts[i];
+      if (str.endsWith(ext) || str.includes(ext + '?')) {
+        return false;
+      }
+    }
+  }
+  
+  return true;
+}
+
+/**
  * Individual attachment loader for Canvas Details
  */
 function loadFilePreview(url, previewBoxId, openBtnId) {
@@ -1002,6 +1031,11 @@ function loadFilePreview(url, previewBoxId, openBtnId) {
 
   if (!url) {
     box.innerHTML = '<div style="padding:15px; text-align:center;">Tidak ada dokumen.</div>';
+    return;
+  }
+
+  if (!isMediaImageOrPdf(url)) {
+    box.innerHTML = '<div style="padding:15px; text-align:center; font-size:0.75rem; color:var(--text-muted);"><i class="fa-solid fa-file-video"></i> Berkas media (Video/Audio) disembunyikan.</div>';
     return;
   }
 
@@ -1043,9 +1077,9 @@ function loadMultipleFilePreviews(urlsStr, previewBoxId, linksContainerId) {
     return;
   }
 
-  const urls = urlsStr.split(',').map(u => u.trim()).filter(Boolean);
-  if (urls.length === 0) {
-    box.innerHTML = '<div style="padding:15px; text-align:center;">Tidak ada foto dokumentasi.</div>';
+  const validUrls = urlsStr.split(',').map(u => u.trim()).filter(Boolean).filter(url => isMediaImageOrPdf(url));
+  if (validUrls.length === 0) {
+    box.innerHTML = '<div style="padding:15px; text-align:center; font-size:0.8rem; color:var(--text-muted);">Tidak ada foto dokumentasi (Berkas video/audio disembunyikan).</div>';
     return;
   }
 
@@ -1426,6 +1460,11 @@ function loadPDFImage(url, targetWrapperId, labelText) {
       return resolve();
     }
 
+    if (!isMediaImageOrPdf(url)) {
+      wrapper.innerHTML = `<span class="image-placeholder">Berkas video/audio disembunyikan</span>`;
+      return resolve();
+    }
+
     const fileId = extractDriveId(url);
     if (!fileId) {
       wrapper.innerHTML = `<span class="image-placeholder">Tautan ${labelText} salah</span>`;
@@ -1435,6 +1474,11 @@ function loadPDFImage(url, targetWrapperId, labelText) {
     if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
       fetchBase64Data(fileId)
         .then(result => {
+          if (!isMediaImageOrPdf(null, result.contentType)) {
+            wrapper.innerHTML = `<span class="image-placeholder">Berkas video/audio disembunyikan</span>`;
+            return resolve();
+          }
+
           const img = document.createElement('img');
           img.onload = () => {
             img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
@@ -1488,9 +1532,9 @@ async function loadPDFGallery(urlsStr, targetWrapperId) {
     return;
   }
 
-  const urls = urlsStr.split(',').map(u => u.trim()).filter(Boolean);
+  const urls = urlsStr.split(',').map(u => u.trim()).filter(Boolean).filter(url => isMediaImageOrPdf(url));
   if (urls.length === 0) {
-    wrapper.innerHTML = '<span class="image-placeholder">Dokumentasi rumah tidak diunggah</span>';
+    wrapper.innerHTML = '<span class="image-placeholder">Dokumentasi rumah tidak diunggah (Berkas video/audio disembunyikan)</span>';
     return;
   }
 
@@ -1538,6 +1582,11 @@ function fetchAndRenderPDFImage(fileId, containerElement, altText) {
     if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
       fetchBase64Data(fileId)
         .then(result => {
+          if (!isMediaImageOrPdf(null, result.contentType)) {
+            containerElement.innerHTML = `<span class="image-placeholder">Berkas video/audio disembunyikan</span>`;
+            return resolve();
+          }
+
           const img = document.createElement('img');
           img.onload = () => {
             img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
@@ -1578,7 +1627,8 @@ function fetchAndRenderPDFImage(fileId, containerElement, altText) {
 }
 
 /**
- * Compiles and prints all active (status = 'Done') respondents combined in 1 PDF document
+ * Processes active (status = 'Done') respondents one by one, 
+ * generates individual 1-page PDF files, and uploads them directly to Google Drive
  */
 async function printAllCombinedPDF() {
   const printBtn = document.getElementById('print-all-combined-btn');
@@ -1587,7 +1637,7 @@ async function printAllCombinedPDF() {
   
   const total = appState.rawData.length;
   if (total === 0) {
-    alert('Tidak ada data yang siap dicetak.');
+    alert('Tidak ada data yang siap dikirim ke Google Drive.');
     return;
   }
   
@@ -1600,14 +1650,6 @@ async function printAllCombinedPDF() {
   
   if (modal) modal.classList.add('show');
   
-  let bulkWrapper = document.getElementById('pdf-bulk-print-wrapper');
-  if (!bulkWrapper) {
-    bulkWrapper = document.createElement('div');
-    bulkWrapper.id = 'pdf-bulk-print-wrapper';
-    document.body.appendChild(bulkWrapper);
-  }
-  bulkWrapper.innerHTML = '';
-  
   const originalTemplate = document.getElementById('pdf-report-template');
   if (!originalTemplate) {
     alert('Template laporan tidak ditemukan.');
@@ -1617,101 +1659,118 @@ async function printAllCombinedPDF() {
     return;
   }
 
+  const driveFolderId = "1nkE2-IO6Hr5X_wKGx1cJkLnpzw8j6KC4";
+  let successCount = 0;
+  let errorCount = 0;
+
   try {
-    // Generate all A4 templates in the DOM instantly with unique wrapper IDs
     for (let i = 0; i < total; i++) {
       const item = appState.rawData[i];
+      const cleanName = item.nama.toUpperCase().trim().replace(/\s+/g, '_');
+      const cleanCampus = item.kampus.toUpperCase().trim().replace(/\s+/g, '_');
+      const fileName = `${cleanName}_${cleanCampus}.pdf`;
       
-      if (i % 20 === 0 || i === total - 1) {
-        const percent = Math.round((i / total) * 30);
-        if (bar) bar.style.width = `${percent}%`;
-        if (status) status.innerText = `Menyusun template halaman ${i + 1} dari ${total} (${percent}%) - ${item.nama}`;
-        // Small yield to UI thread to keep the browser responsive
-        await new Promise(resolve => setTimeout(resolve, 0));
-      }
-      
-      const clone = originalTemplate.cloneNode(true);
-      clone.removeAttribute('id');
-      
-      const fillText = (selector, text) => {
-        const el = clone.querySelector(selector);
-        if (el) el.innerText = text;
-      };
-      
-      fillText('#pdf-reg-id', item.id);
-      fillText('#pdf-timestamp', item.timestamp);
-      fillText('#pdf-nama', item.nama);
-      fillText('#pdf-sig-nama', item.nama);
-      
-      fillText('#pdf-kampus', item.kampus);
-      fillText('#pdf-semester', item.semester);
-      fillText('#pdf-ipk', item.ipk_display);
-      fillText('#pdf-whatsapp', item.whatsapp);
-      fillText('#pdf-alamat', item.alamat);
-      fillText('#pdf-tempat-tinggal', item.tempat_tinggal);
-      fillText('#pdf-ukt', item.ukt);
+      const percent = Math.round(((i + 1) / total) * 100);
+      if (bar) bar.style.width = `${percent}%`;
+      if (status) status.innerText = `Mengirim PDF ke Google Drive... ${i + 1} dari ${total} (${percent}%) - ${item.nama}`;
 
-      fillText('#pdf-ayah', item.nama_ayah || '-');
-      fillText('#pdf-job-ayah', item.pekerjaan_ayah || '-');
-      fillText('#pdf-income-ayah', item.penghasilan_ayah || '-');
+      // Populate A4 template in hidden container
+      document.getElementById('pdf-reg-id').innerText = item.id;
+      document.getElementById('pdf-timestamp').innerText = item.timestamp;
+      document.getElementById('pdf-nama').innerText = item.nama;
+      document.getElementById('pdf-sig-nama').innerText = item.nama;
       
-      fillText('#pdf-ibu', item.nama_ibu || '-');
-      fillText('#pdf-job-ibu', item.pekerjaan_ibu || '-');
-      fillText('#pdf-income-ibu', item.penghasilan_ibu || '-');
+      document.getElementById('pdf-kampus').innerText = item.kampus;
+      document.getElementById('pdf-semester').innerText = item.semester;
+      document.getElementById('pdf-ipk').innerText = item.ipk_display;
+      document.getElementById('pdf-whatsapp').innerText = item.whatsapp;
+      document.getElementById('pdf-alamat').innerText = item.alamat;
+      document.getElementById('pdf-tempat-tinggal').innerText = item.tempat_tinggal;
+      document.getElementById('pdf-ukt').innerText = item.ukt;
+
+      document.getElementById('pdf-ayah').innerText = item.nama_ayah || '-';
+      document.getElementById('pdf-job-ayah').innerText = item.pekerjaan_ayah || '-';
+      document.getElementById('pdf-income-ayah').innerText = item.penghasilan_ayah || '-';
       
-      const sigDateVal = new Date().toLocaleDateString('id-ID', {
+      document.getElementById('pdf-ibu').innerText = item.nama_ibu || '-';
+      document.getElementById('pdf-job-ibu').innerText = item.pekerjaan_ibu || '-';
+      document.getElementById('pdf-income-ibu').innerText = item.penghasilan_ibu || '-';
+      
+      document.getElementById('pdf-sig-date').innerText = new Date().toLocaleDateString('id-ID', {
         day: 'numeric', month: 'long', year: 'numeric'
       });
-      fillText('#pdf-sig-date', sigDateVal);
 
-      // Re-assign wrapper IDs dynamically to load images for this clone
-      const ktpWrapper = clone.querySelector('#pdf-img-ktp');
-      if (ktpWrapper) ktpWrapper.id = `bulk-all-ktp-${i}`;
-      
-      const rekomWrapper = clone.querySelector('#pdf-img-rekomendasi');
-      if (rekomWrapper) rekomWrapper.id = `bulk-all-rekom-${i}`;
-      
-      const rumahWrapper = clone.querySelector('#pdf-img-rumah');
-      if (rumahWrapper) rumahWrapper.id = `bulk-all-rumah-${i}`;
+      // Load images (filtering non-images)
+      await Promise.all([
+        loadPDFImage(item.ktp, 'pdf-img-ktp', 'LAMPIRAN 1: FOTO KTP'),
+        loadPDFImage(item.surat_rekomendasi, 'pdf-img-rekomendasi', 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
+        loadPDFGallery(item.foto_rumah, 'pdf-img-rumah')
+      ]);
 
-      bulkWrapper.appendChild(clone);
-    }
-    
-    // Load images in concurrency batches to prevent browser timeouts and Google rate limits
-    const batchSize = 6;
-    for (let i = 0; i < total; i += batchSize) {
-      const batchPromises = [];
-      const end = Math.min(i + batchSize, total);
-      
-      for (let j = i; j < end; j++) {
-        const item = appState.rawData[j];
-        batchPromises.push(loadPDFImage(item.ktp, `bulk-all-ktp-${j}`, 'LAMPIRAN 1: FOTO KTP'));
-        batchPromises.push(loadPDFImage(item.surat_rekomendasi, `bulk-all-rekom-${j}`, 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'));
-        batchPromises.push(loadPDFGallery(item.foto_rumah, `bulk-all-rumah-${j}`));
+      originalTemplate.style.display = 'block';
+
+      // Options for high-quality 1-page vector PDF
+      const pdfOptions = {
+        margin: [12.7, 12.7, 12.7, 12.7],
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      // Generate base64 data URI of PDF using html2pdf
+      const pdfDataUri = await html2pdf().set(pdfOptions).from(originalTemplate).outputPdf('datauristring');
+      originalTemplate.style.display = 'none';
+
+      // Send Base64 PDF payload to Apps Script API savePDFToDrive endpoint
+      if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
+        try {
+          const res = await fetch(CONFIG.API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'savePDFToDrive',
+              folderId: driveFolderId,
+              fileName: fileName,
+              base64Data: pdfDataUri
+            })
+          });
+          const uploadRes = await res.json();
+          if (uploadRes.status === 'success') {
+            successCount++;
+          } else {
+            console.warn(`Gagal menyimpan ${fileName}:`, uploadRes.message);
+            errorCount++;
+          }
+        } catch(uploadErr) {
+          console.error(`Error upload PDF for ${fileName}:`, uploadErr);
+          errorCount++;
+        }
+      } else {
+        // Fallback for mock/offline demo
+        await new Promise(r => setTimeout(r, 100));
+        successCount++;
       }
-      
-      // Wait for this batch to complete loading
-      await Promise.all(batchPromises);
-      
-      const percent = 30 + Math.round((end / total) * 70);
-      if (bar) bar.style.width = `${percent}%`;
-      if (status) status.innerText = `Mengunduh berkas lampiran gambar... ${end} dari ${total} (${percent}%)`;
     }
-    
+
     if (bar) bar.style.width = '100%';
-    if (status) status.innerText = `Membuka dialog cetak PDF...`;
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const oldTitle = document.title;
-    document.title = "LAPORAN_LPJ_MASSAL_BEASISWA_BPKH";
-    window.print();
-    document.title = oldTitle;
-    
-    bulkWrapper.innerHTML = '';
-    if (modal) modal.classList.remove('show');
+    if (status) {
+      status.innerHTML = `
+        <div style="text-align:center; padding:10px;">
+          <i class="fa-solid fa-circle-check" style="font-size:2.5rem; color:var(--accent-green); margin-bottom:10px;"></i>
+          <h4 style="margin:0 0 5px 0;">Pengiriman PDF Ke Google Drive Selesai!</h4>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:15px;">
+            Berhasil menyimpan <strong>${successCount}</strong> file PDF ke folder Google Drive.${errorCount > 0 ? ` (${errorCount} gagal)` : ''}
+          </p>
+          <a href="https://drive.google.com/drive/folders/${driveFolderId}?usp=drive_link" target="_blank" class="primary-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px; justify-content:center;">
+            <i class="fa-solid fa-folder-open"></i> Buka Folder Google Drive
+          </a>
+        </div>
+      `;
+    }
   } catch (err) {
-    console.error('Error during bulk print:', err);
-    alert('Terjadi kesalahan saat memproses cetak massal.');
+    console.error('Error sending bulk PDFs to Drive:', err);
+    alert('Terjadi kesalahan saat memproses pengiriman PDF ke Google Drive.');
     if (modal) modal.classList.remove('show');
   } finally {
     printBtn.disabled = false;
