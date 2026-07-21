@@ -10,7 +10,7 @@ let appState = {
   filteredData: [],
   currentPage: 1,
   rowsPerPage: 10,
-  currentSort: { column: 'nama', direction: 'asc' },
+  currentSort: { column: 'id', direction: 'asc' },
   selectedRespondent: null,
   campuses: [],
   isDarkTheme: false,
@@ -344,6 +344,12 @@ function setupMonitoringEventListeners() {
   const bulkBtn = document.getElementById('bulk-download-pdf-btn');
   if (bulkBtn) {
     bulkBtn.addEventListener('click', downloadSelectedPDFs);
+  }
+
+  // Print all combined button
+  const printAllBtn = document.getElementById('print-all-combined-btn');
+  if (printAllBtn) {
+    printAllBtn.addEventListener('click', printAllCombinedPDF);
   }
 }
 
@@ -1525,5 +1531,132 @@ async function fetchAndRenderPDFImage(fileId, containerElement, altText) {
     };
     containerElement.innerHTML = '';
     containerElement.appendChild(img);
+  }
+}
+
+/**
+ * Compiles and prints all active (status = 'Done') respondents combined in 1 PDF document
+ */
+async function printAllCombinedPDF() {
+  const printBtn = document.getElementById('print-all-combined-btn');
+  if (!printBtn) return;
+  const oldBtnText = printBtn.innerHTML;
+  
+  const total = appState.rawData.length;
+  if (total === 0) {
+    alert('Tidak ada data yang siap dicetak.');
+    return;
+  }
+  
+  printBtn.disabled = true;
+  printBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mempersiapkan...';
+  
+  const modal = document.getElementById('download-progress-modal');
+  const bar = document.getElementById('download-progress-bar');
+  const status = document.getElementById('download-progress-status');
+  
+  if (modal) modal.classList.add('show');
+  
+  let bulkWrapper = document.getElementById('pdf-bulk-print-wrapper');
+  if (!bulkWrapper) {
+    bulkWrapper = document.createElement('div');
+    bulkWrapper.id = 'pdf-bulk-print-wrapper';
+    document.body.appendChild(bulkWrapper);
+  }
+  bulkWrapper.innerHTML = '';
+  
+  const originalTemplate = document.getElementById('pdf-report-template');
+  if (!originalTemplate) {
+    alert('Template laporan tidak ditemukan.');
+    if (modal) modal.classList.remove('show');
+    printBtn.disabled = false;
+    printBtn.innerHTML = oldBtnText;
+    return;
+  }
+
+  try {
+    for (let i = 0; i < total; i++) {
+      const item = appState.rawData[i];
+      const percent = Math.round((i / total) * 100);
+      if (bar) bar.style.width = `${percent}%`;
+      if (status) status.innerText = `Memproses Dokumen ${i + 1} dari ${total} (${percent}%) - ${item.nama}`;
+      
+      // Clone original template structure
+      const clone = originalTemplate.cloneNode(true);
+      clone.removeAttribute('id');
+      
+      const fillText = (selector, text) => {
+        const el = clone.querySelector(selector);
+        if (el) el.innerText = text;
+      };
+      
+      fillText('#pdf-reg-id', item.id);
+      fillText('#pdf-timestamp', item.timestamp);
+      fillText('#pdf-nama', item.nama);
+      fillText('#pdf-sig-nama', item.nama);
+      
+      fillText('#pdf-kampus', item.kampus);
+      fillText('#pdf-semester', item.semester);
+      fillText('#pdf-ipk', item.ipk_display);
+      fillText('#pdf-whatsapp', item.whatsapp);
+      fillText('#pdf-alamat', item.alamat);
+      fillText('#pdf-tempat-tinggal', item.tempat_tinggal);
+      fillText('#pdf-ukt', item.ukt);
+
+      fillText('#pdf-ayah', item.nama_ayah || '-');
+      fillText('#pdf-job-ayah', item.pekerjaan_ayah || '-');
+      fillText('#pdf-income-ayah', item.penghasilan_ayah || '-');
+      
+      fillText('#pdf-ibu', item.nama_ibu || '-');
+      fillText('#pdf-job-ibu', item.pekerjaan_ibu || '-');
+      fillText('#pdf-income-ibu', item.penghasilan_ibu || '-');
+      
+      const sigDateVal = new Date().toLocaleDateString('id-ID', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      });
+      fillText('#pdf-sig-date', sigDateVal);
+
+      // Re-assign wrapper IDs dynamically to load images for this clone
+      const ktpWrapper = clone.querySelector('#pdf-img-ktp');
+      if (ktpWrapper) ktpWrapper.id = `bulk-all-ktp-${i}`;
+      
+      const rekomWrapper = clone.querySelector('#pdf-img-rekomendasi');
+      if (rekomWrapper) rekomWrapper.id = `bulk-all-rekom-${i}`;
+      
+      const rumahWrapper = clone.querySelector('#pdf-img-rumah');
+      if (rumahWrapper) rumahWrapper.id = `bulk-all-rumah-${i}`;
+      
+      bulkWrapper.appendChild(clone);
+
+      // Load all files
+      await Promise.all([
+        loadPDFImage(item.ktp, `bulk-all-ktp-${i}`, 'LAMPIRAN 1: FOTO KTP'),
+        loadPDFImage(item.surat_rekomendasi, `bulk-all-rekom-${i}`, 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
+        loadPDFGallery(item.foto_rumah, `bulk-all-rumah-${i}`)
+      ]);
+      
+      // Delay slightly between files to protect browser resources
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    if (bar) bar.style.width = '100%';
+    if (status) status.innerText = `Menyiapkan print dialog untuk ${total} halaman...`;
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const oldTitle = document.title;
+    document.title = "LAPORAN_LPJ_MASSAL_BEASISWA_BPKH";
+    window.print();
+    document.title = oldTitle;
+    
+    bulkWrapper.innerHTML = '';
+    if (modal) modal.classList.remove('show');
+  } catch (err) {
+    console.error('Error during bulk print:', err);
+    alert('Terjadi kesalahan saat memproses cetak massal.');
+    if (modal) modal.classList.remove('show');
+  } finally {
+    printBtn.disabled = false;
+    printBtn.innerHTML = oldBtnText;
   }
 }

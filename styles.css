@@ -1684,6 +1684,8 @@ a:hover {
   body * {
     visibility: hidden !important;
   }
+  
+  /* Show single PDF template when active */
   #pdf-report-template, #pdf-report-template * {
     visibility: visible !important;
   }
@@ -1698,6 +1700,33 @@ a:hover {
     margin: 0 !important;
     box-shadow: none !important;
     border: none !important;
+  }
+  
+  /* Show bulk PDF template when active */
+  #pdf-bulk-print-wrapper, #pdf-bulk-print-wrapper * {
+    visibility: visible !important;
+  }
+  #pdf-bulk-print-wrapper {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 184.6mm !important;
+    display: block !important;
+    background-color: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #pdf-bulk-print-wrapper .pdf-container.one-page {
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 184.6mm !important;
+    height: 271.6mm !important;
+    position: relative !important;
+    overflow: hidden !important;
   }
   .html2pdf__page-break {
     page-break-before: always !important;
