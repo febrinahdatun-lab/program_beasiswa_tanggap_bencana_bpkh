@@ -1082,43 +1082,57 @@ function loadMultipleFilePreviews(urlsStr, previewBoxId, linksContainerId) {
   });
 }
 
+const apiImageCache = {};
+
+/**
+ * Unified, caching proxy file retriever from Google Apps Script Web App
+ */
+async function fetchBase64Data(fileId) {
+  if (!CONFIG.API_URL || CONFIG.USE_MOCK_DATA) {
+    throw new Error('API offline atau menggunakan mock data');
+  }
+  if (apiImageCache[fileId]) {
+    return apiImageCache[fileId];
+  }
+  const response = await fetch(`${CONFIG.API_URL}?action=getFile&id=${fileId}`);
+  const result = await response.json();
+  if (result.status === 'success') {
+    apiImageCache[fileId] = {
+      contentType: result.contentType,
+      base64: result.base64
+    };
+    return apiImageCache[fileId];
+  } else {
+    throw new Error(result.message || 'Gagal mengambil data file');
+  }
+}
+
 /**
  * Google Apps Script Proxy file retriever with PDF contentType layout styling
  */
 async function fetchBase64FromAPI(fileId, containerElement, isGalleryItem = false) {
-  if (!CONFIG.API_URL || CONFIG.USE_MOCK_DATA) {
-    containerElement.innerHTML = `<div style="padding:5px; text-align:center; font-size:0.7rem; color:var(--text-muted);"><i class="fa-solid fa-eye-slash"></i> Offline (Demo)</div>`;
-    return;
-  }
-
   try {
-    const response = await fetch(`${CONFIG.API_URL}?action=getFile&id=${fileId}`);
-    const result = await response.json();
-    
-    if (result.status === 'success') {
-      if (result.contentType === 'application/pdf') {
-        const img = document.createElement('img');
-        img.src = `https://drive.google.com/thumbnail?sz=w800&id=${fileId}`;
-        img.onload = () => {
-          img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
-        };
-        if (isGalleryItem) containerElement.className = '';
-        containerElement.innerHTML = '';
-        containerElement.appendChild(img);
-        return;
-      }
-      
+    const fileData = await fetchBase64Data(fileId);
+    if (fileData.contentType === 'application/pdf') {
       const img = document.createElement('img');
-      img.src = `data:${result.contentType};base64,${result.base64}`;
+      img.src = `https://drive.google.com/thumbnail?sz=w800&id=${fileId}`;
       img.onload = () => {
         img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
       };
       if (isGalleryItem) containerElement.className = '';
       containerElement.innerHTML = '';
       containerElement.appendChild(img);
-    } else {
-      throw new Error(result.message);
+      return;
     }
+    
+    const img = document.createElement('img');
+    img.src = `data:${fileData.contentType};base64,${fileData.base64}`;
+    img.onload = () => {
+      img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+    };
+    if (isGalleryItem) containerElement.className = '';
+    containerElement.innerHTML = '';
+    containerElement.appendChild(img);
   } catch (err) {
     containerElement.innerHTML = `<div style="padding:5px; text-align:center; font-size:0.65rem; color:var(--accent-red);"><i class="fa-solid fa-triangle-exclamation"></i> Gagal</div>`;
   }
@@ -1419,28 +1433,23 @@ function loadPDFImage(url, targetWrapperId, labelText) {
     }
 
     if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
-      fetch(`${CONFIG.API_URL}?action=getFile&id=${fileId}`)
-        .then(response => response.json())
+      fetchBase64Data(fileId)
         .then(result => {
-          if (result.status === 'success') {
-            const img = document.createElement('img');
-            img.onload = () => {
-              img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
-              resolve();
-            };
-            img.onerror = () => resolve();
-            
-            if (result.contentType === 'application/pdf') {
-              img.src = `https://drive.google.com/thumbnail?sz=w800&id=${fileId}`;
-            } else {
-              img.src = `data:${result.contentType};base64,${result.base64}`;
-            }
-            img.alt = labelText;
-            wrapper.innerHTML = '';
-            wrapper.appendChild(img);
+          const img = document.createElement('img');
+          img.onload = () => {
+            img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+            resolve();
+          };
+          img.onerror = () => resolve();
+          
+          if (result.contentType === 'application/pdf') {
+            img.src = `https://drive.google.com/thumbnail?sz=w800&id=${fileId}`;
           } else {
-            loadFallback();
+            img.src = `data:${result.contentType};base64,${result.base64}`;
           }
+          img.alt = labelText;
+          wrapper.innerHTML = '';
+          wrapper.appendChild(img);
         })
         .catch(err => {
           console.warn('Base64 fetch failed:', err);
@@ -1488,13 +1497,13 @@ async function loadPDFGallery(urlsStr, targetWrapperId) {
   if (urls.length === 1) {
     wrapper.className = 'pdf-single-photo-container';
     wrapper.innerHTML = `
-      <div class="pdf-single-photo-box" id="pdf-house-box-0">
+      <div class="pdf-single-photo-box">
         <span class="image-placeholder">Memuat foto rumah...</span>
       </div>
     `;
     const fileId = extractDriveId(urls[0]);
     if (fileId) {
-      const box = document.getElementById('pdf-house-box-0');
+      const box = wrapper.querySelector('.pdf-single-photo-box');
       await fetchAndRenderPDFImage(fileId, box, "Foto Rumah Terdampak");
     }
   } else {
@@ -1502,16 +1511,17 @@ async function loadPDFGallery(urlsStr, targetWrapperId) {
     wrapper.innerHTML = urls.map((url, idx) => `
       <div class="pdf-doc-box">
         <h6>LAMPIRAN RUMAH ${idx + 1}</h6>
-        <div class="pdf-image-wrapper" id="pdf-house-box-${idx}">
+        <div class="pdf-image-wrapper">
           <span class="image-placeholder">Memuat foto rumah ${idx + 1}...</span>
         </div>
       </div>
     `).join('');
 
+    const boxes = wrapper.querySelectorAll('.pdf-image-wrapper');
     await Promise.all(urls.map(async (url, idx) => {
       const fileId = extractDriveId(url);
       if (!fileId) return;
-      const box = document.getElementById(`pdf-house-box-${idx}`);
+      const box = boxes[idx];
       await fetchAndRenderPDFImage(fileId, box, `Foto Rumah ${idx + 1}`);
     }));
   }
@@ -1526,23 +1536,23 @@ function fetchAndRenderPDFImage(fileId, containerElement, altText) {
     if (!containerElement) return resolve();
 
     if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
-      fetch(`${CONFIG.API_URL}?action=getFile&id=${fileId}`)
-        .then(response => response.json())
+      fetchBase64Data(fileId)
         .then(result => {
-          if (result.status === 'success') {
-            const img = document.createElement('img');
-            img.onload = () => {
-              img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
-              resolve();
-            };
-            img.onerror = () => resolve();
-            img.src = `data:${result.contentType};base64,${result.base64}`;
-            img.alt = altText;
-            containerElement.innerHTML = '';
-            containerElement.appendChild(img);
+          const img = document.createElement('img');
+          img.onload = () => {
+            img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
+            resolve();
+          };
+          img.onerror = () => resolve();
+          
+          if (result.contentType === 'application/pdf') {
+            img.src = `https://drive.google.com/thumbnail?sz=w800&id=${fileId}`;
           } else {
-            loadFallback();
+            img.src = `data:${result.contentType};base64,${result.base64}`;
           }
+          img.alt = altText;
+          containerElement.innerHTML = '';
+          containerElement.appendChild(img);
         })
         .catch(err => {
           console.warn('API load failed for house photo:', err);
@@ -1607,75 +1617,8 @@ async function printAllCombinedPDF() {
     return;
   }
 
-  const imagePromises = [];
-
-  // Track image load/error to prevent broken images in PDF print
-  function trackImageLoad(img) {
-    const p = new Promise(resolve => {
-      if (img.complete && img.naturalWidth !== 0) {
-        resolve();
-      } else {
-        img.addEventListener('load', () => resolve());
-        img.addEventListener('error', () => resolve()); // resolve on error to prevent freezing
-      }
-    });
-    imagePromises.push(p);
-  }
-
-  // Direct high-speed Drive thumbnail image injector to avoid API rate-limit bottlenecks
-  function injectDirectThumbnail(url, boxElement, altText) {
-    if (!url) {
-      boxElement.innerHTML = '<span class="image-placeholder">Tidak diunggah</span>';
-      return;
-    }
-    const fileId = extractDriveId(url);
-    if (!fileId) {
-      boxElement.innerHTML = '<span class="image-placeholder">ID tidak valid</span>';
-      return;
-    }
-    const img = document.createElement('img');
-    trackImageLoad(img);
-    img.src = `https://drive.google.com/thumbnail?sz=w800&id=${fileId}`;
-    img.alt = altText;
-    img.onload = () => {
-      img.className = img.naturalWidth > img.naturalHeight ? 'is-landscape' : 'is-portrait';
-    };
-    boxElement.innerHTML = '';
-    boxElement.appendChild(img);
-  }
-
-  // Direct high-speed gallery injector
-  function injectDirectGallery(urlsStr, boxElement) {
-    if (!urlsStr) {
-      boxElement.innerHTML = '<span class="image-placeholder">Tidak diunggah</span>';
-      return;
-    }
-    const urls = urlsStr.split(',').map(u => u.trim()).filter(Boolean);
-    if (urls.length === 0) {
-      boxElement.innerHTML = '<span class="image-placeholder">Tidak diunggah</span>';
-      return;
-    }
-    if (urls.length === 1) {
-      boxElement.className = 'pdf-single-photo-container';
-      boxElement.innerHTML = `<div class="pdf-single-photo-box" style="height:220px;"></div>`;
-      injectDirectThumbnail(urls[0], boxElement.firstChild, "Foto Rumah");
-    } else {
-      boxElement.className = 'pdf-document-container';
-      boxElement.innerHTML = urls.map((url, idx) => `
-        <div class="pdf-doc-box">
-          <h6>LAMPIRAN RUMAH ${idx + 1}</h6>
-          <div class="pdf-image-wrapper" style="height:220px;"></div>
-        </div>
-      `).join('');
-      const wrappers = boxElement.querySelectorAll('.pdf-image-wrapper');
-      urls.forEach((url, idx) => {
-        injectDirectThumbnail(url, wrappers[idx], `Foto Rumah ${idx + 1}`);
-      });
-    }
-  }
-
   try {
-    // Generate all A4 templates in the DOM instantly
+    // Generate all A4 templates in the DOM instantly with unique wrapper IDs
     for (let i = 0; i < total; i++) {
       const item = appState.rawData[i];
       
@@ -1721,42 +1664,38 @@ async function printAllCombinedPDF() {
       });
       fillText('#pdf-sig-date', sigDateVal);
 
-      // Inject images directly using rapid URLs
-      const ktpBox = clone.querySelector('#pdf-img-ktp');
-      if (ktpBox) injectDirectThumbnail(item.ktp, ktpBox, "Foto KTP");
+      // Re-assign wrapper IDs dynamically to load images for this clone
+      const ktpWrapper = clone.querySelector('#pdf-img-ktp');
+      if (ktpWrapper) ktpWrapper.id = `bulk-all-ktp-${i}`;
       
-      const rekomBox = clone.querySelector('#pdf-img-rekomendasi');
-      if (rekomBox) injectDirectThumbnail(item.surat_rekomendasi, rekomBox, "Surat Rekomendasi");
+      const rekomWrapper = clone.querySelector('#pdf-img-rekomendasi');
+      if (rekomWrapper) rekomWrapper.id = `bulk-all-rekom-${i}`;
       
-      const rumahBox = clone.querySelector('#pdf-img-rumah');
-      if (rumahBox) injectDirectGallery(item.foto_rumah, rumahBox);
-      
-      // Track cloned logo images
-      clone.querySelectorAll('.pdf-header img').forEach(logoImg => {
-        trackImageLoad(logoImg);
-      });
+      const rumahWrapper = clone.querySelector('#pdf-img-rumah');
+      if (rumahWrapper) rumahWrapper.id = `bulk-all-rumah-${i}`;
 
       bulkWrapper.appendChild(clone);
     }
     
-    // Wait for all images to complete loading, displaying real-time download progress
-    let completedImages = 0;
-    const totalImages = imagePromises.length;
-    
-    if (totalImages > 0) {
-      const trackedPromises = imagePromises.map(p => p.then(() => {
-        completedImages++;
-        const pct = 30 + Math.round((completedImages / totalImages) * 70);
-        if (bar) bar.style.width = `${pct}%`;
-        if (status) status.innerText = `Mengunduh berkas lampiran gambar... ${completedImages} dari ${totalImages} (${pct}%)`;
-      }));
+    // Load images in concurrency batches to prevent browser timeouts and Google rate limits
+    const batchSize = 6;
+    for (let i = 0; i < total; i += batchSize) {
+      const batchPromises = [];
+      const end = Math.min(i + batchSize, total);
       
-      // Wait for all to finish, or a maximum timeout of 15 seconds
-      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 15000));
-      await Promise.race([
-        Promise.all(trackedPromises),
-        timeoutPromise
-      ]);
+      for (let j = i; j < end; j++) {
+        const item = appState.rawData[j];
+        batchPromises.push(loadPDFImage(item.ktp, `bulk-all-ktp-${j}`, 'LAMPIRAN 1: FOTO KTP'));
+        batchPromises.push(loadPDFImage(item.surat_rekomendasi, `bulk-all-rekom-${j}`, 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'));
+        batchPromises.push(loadPDFGallery(item.foto_rumah, `bulk-all-rumah-${j}`));
+      }
+      
+      // Wait for this batch to complete loading
+      await Promise.all(batchPromises);
+      
+      const percent = 30 + Math.round((end / total) * 70);
+      if (bar) bar.style.width = `${percent}%`;
+      if (status) status.innerText = `Mengunduh berkas lampiran gambar... ${end} dari ${total} (${percent}%)`;
     }
     
     if (bar) bar.style.width = '100%';
