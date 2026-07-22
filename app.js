@@ -1627,152 +1627,104 @@ function fetchAndRenderPDFImage(fileId, containerElement, altText) {
 }
 
 /**
- * Processes active (status = 'Done') respondents one by one, 
- * generates individual 1-page PDF files, and uploads them directly to Google Drive
+ * Starts the automatic background PDF generation on Google Apps Script server
+ * and polls the progress status periodically.
  */
 async function printAllCombinedPDF() {
   const printBtn = document.getElementById('print-all-combined-btn');
   if (!printBtn) return;
   const oldBtnText = printBtn.innerHTML;
   
-  const total = appState.rawData.length;
-  if (total === 0) {
-    alert('Tidak ada data yang siap dikirim ke Google Drive.');
-    return;
-  }
-  
-  printBtn.disabled = true;
-  printBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mempersiapkan...';
-  
   const modal = document.getElementById('download-progress-modal');
   const bar = document.getElementById('download-progress-bar');
   const status = document.getElementById('download-progress-status');
   
-  if (modal) modal.classList.add('show');
-  
-  const originalTemplate = document.getElementById('pdf-report-template');
-  if (!originalTemplate) {
-    alert('Template laporan tidak ditemukan.');
-    if (modal) modal.classList.remove('show');
-    printBtn.disabled = false;
-    printBtn.innerHTML = oldBtnText;
-    return;
-  }
-
   const driveFolderId = "1nkE2-IO6Hr5X_wKGx1cJkLnpzw8j6KC4";
-  let successCount = 0;
-  let errorCount = 0;
+  const driveUrl = `https://drive.google.com/drive/folders/${driveFolderId}?usp=drive_link`;
+
+  printBtn.disabled = true;
+  printBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menghubungi Server...';
+  if (modal) modal.classList.add('show');
 
   try {
-    for (let i = 0; i < total; i++) {
-      const item = appState.rawData[i];
-      const cleanName = item.nama.toUpperCase().trim().replace(/\s+/g, '_');
-      const cleanCampus = item.kampus.toUpperCase().trim().replace(/\s+/g, '_');
-      const fileName = `${cleanName}_${cleanCampus}.pdf`;
-      
-      const percent = Math.round(((i + 1) / total) * 100);
-      if (bar) bar.style.width = `${percent}%`;
-      if (status) status.innerText = `Mengirim PDF ke Google Drive... ${i + 1} dari ${total} (${percent}%) - ${item.nama}`;
-
-      // Populate A4 template in hidden container
-      document.getElementById('pdf-reg-id').innerText = item.id;
-      document.getElementById('pdf-timestamp').innerText = item.timestamp;
-      document.getElementById('pdf-nama').innerText = item.nama;
-      document.getElementById('pdf-sig-nama').innerText = item.nama;
-      
-      document.getElementById('pdf-kampus').innerText = item.kampus;
-      document.getElementById('pdf-semester').innerText = item.semester;
-      document.getElementById('pdf-ipk').innerText = item.ipk_display;
-      document.getElementById('pdf-whatsapp').innerText = item.whatsapp;
-      document.getElementById('pdf-alamat').innerText = item.alamat;
-      document.getElementById('pdf-tempat-tinggal').innerText = item.tempat_tinggal;
-      document.getElementById('pdf-ukt').innerText = item.ukt;
-
-      document.getElementById('pdf-ayah').innerText = item.nama_ayah || '-';
-      document.getElementById('pdf-job-ayah').innerText = item.pekerjaan_ayah || '-';
-      document.getElementById('pdf-income-ayah').innerText = item.penghasilan_ayah || '-';
-      
-      document.getElementById('pdf-ibu').innerText = item.nama_ibu || '-';
-      document.getElementById('pdf-job-ibu').innerText = item.pekerjaan_ibu || '-';
-      document.getElementById('pdf-income-ibu').innerText = item.penghasilan_ibu || '-';
-      
-      document.getElementById('pdf-sig-date').innerText = new Date().toLocaleDateString('id-ID', {
-        day: 'numeric', month: 'long', year: 'numeric'
-      });
-
-      // Load images (filtering non-images)
-      await Promise.all([
-        loadPDFImage(item.ktp, 'pdf-img-ktp', 'LAMPIRAN 1: FOTO KTP'),
-        loadPDFImage(item.surat_rekomendasi, 'pdf-img-rekomendasi', 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
-        loadPDFGallery(item.foto_rumah, 'pdf-img-rumah')
-      ]);
-
-      originalTemplate.style.display = 'block';
-
-      // Options for high-quality 1-page vector PDF
-      const pdfOptions = {
-        margin: [12.7, 12.7, 12.7, 12.7],
-        filename: fileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-
-      // Generate base64 data URI of PDF using html2pdf
-      const pdfDataUri = await html2pdf().set(pdfOptions).from(originalTemplate).outputPdf('datauristring');
-      originalTemplate.style.display = 'none';
-
-      // Send Base64 PDF payload to Apps Script API savePDFToDrive endpoint
-      if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
-        try {
-          const res = await fetch(CONFIG.API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              action: 'savePDFToDrive',
-              folderId: driveFolderId,
-              fileName: fileName,
-              base64Data: pdfDataUri
-            })
-          });
-          const uploadRes = await res.json();
-          if (uploadRes.status === 'success') {
-            successCount++;
-          } else {
-            console.warn(`Gagal menyimpan ${fileName}:`, uploadRes.message);
-            errorCount++;
-          }
-        } catch(uploadErr) {
-          console.error(`Error upload PDF for ${fileName}:`, uploadErr);
-          errorCount++;
+    // 1. Call API to start background process
+    if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
+      const startRes = await fetch(`${CONFIG.API_URL}?action=startPDFBackground`);
+      const startData = await startRes.json();
+      console.log('Background process started:', startData);
+    }
+    
+    // 2. Poll progress periodically
+    let mockProcessed = 0;
+    let pollInterval = setInterval(async () => {
+      try {
+        let prog = { processed: 0, total: appState.rawData.length || 290, percent: 0, currentName: '', status: 'RUNNING', estimatedMinutesLeft: 15 };
+        
+        if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
+          const res = await fetch(`${CONFIG.API_URL}?action=getPDFProgress`);
+          prog = await res.json();
+        } else {
+          // Mock mode fallback
+          mockProcessed = Math.min(mockProcessed + 15, prog.total);
+          prog.processed = mockProcessed;
+          prog.percent = Math.round((prog.processed / prog.total) * 100);
+          prog.currentName = (appState.rawData[mockProcessed - 1] || {}).nama || 'Responden';
+          prog.estimatedMinutesLeft = Math.ceil((prog.total - prog.processed) / 20);
+          if (prog.processed >= prog.total) prog.status = 'COMPLETED';
         }
-      } else {
-        // Fallback for mock/offline demo
-        await new Promise(r => setTimeout(r, 100));
-        successCount++;
-      }
-    }
 
-    if (bar) bar.style.width = '100%';
-    if (status) {
-      status.innerHTML = `
-        <div style="text-align:center; padding:10px;">
-          <i class="fa-solid fa-circle-check" style="font-size:2.5rem; color:var(--accent-green); margin-bottom:10px;"></i>
-          <h4 style="margin:0 0 5px 0;">Pengiriman PDF Ke Google Drive Selesai!</h4>
-          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:15px;">
-            Berhasil menyimpan <strong>${successCount}</strong> file PDF ke folder Google Drive.${errorCount > 0 ? ` (${errorCount} gagal)` : ''}
-          </p>
-          <a href="https://drive.google.com/drive/folders/${driveFolderId}?usp=drive_link" target="_blank" class="primary-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px; justify-content:center;">
-            <i class="fa-solid fa-folder-open"></i> Buka Folder Google Drive
-          </a>
-        </div>
-      `;
-    }
+        if (bar) bar.style.width = `${prog.percent || 0}%`;
+        if (status) {
+          if (prog.status === 'COMPLETED') {
+            clearInterval(pollInterval);
+            if (bar) bar.style.width = '100%';
+            status.innerHTML = `
+              <div style="text-align:center; padding:10px;">
+                <i class="fa-solid fa-circle-check" style="font-size:2.5rem; color:var(--accent-green); margin-bottom:10px;"></i>
+                <h4 style="margin:0 0 5px 0;">Pengiriman PDF Ke Google Drive Selesai!</h4>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:15px;">
+                  Berhasil menyimpan <strong>${prog.total}</strong> file PDF ke folder Google Drive di belakang layar.
+                </p>
+                <a href="${driveUrl}" target="_blank" class="primary-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px; justify-content:center;">
+                  <i class="fa-solid fa-folder-open"></i> Buka Folder Google Drive
+                </a>
+              </div>
+            `;
+            printBtn.disabled = false;
+            printBtn.innerHTML = oldBtnText;
+          } else {
+            status.innerHTML = `
+              <div style="text-align:left; padding:5px;">
+                <p style="margin:0 0 6px 0; font-weight:600; color:var(--primary-color);">
+                  <i class="fa-solid fa-gear fa-spin"></i> Memproses PDF di Belakang Layar Server...
+                </p>
+                <p style="margin:0 0 4px 0; font-size:0.85rem;">
+                  Terproses: <strong>${prog.processed}</strong> dari <strong>${prog.total}</strong> file (${prog.percent}%)
+                </p>
+                <p style="margin:0 0 8px 0; font-size:0.8rem; color:var(--text-muted);">
+                  File aktif: <em>${prog.currentName || 'Sedang memuat...'}</em> | Sisa waktu: ~<strong>${prog.estimatedMinutesLeft || 10} menit</strong>
+                </p>
+                <div style="background:rgba(234, 179, 8, 0.15); border-left:3px solid #eab308; padding:8px 10px; border-radius:4px; font-size:0.75rem; color:#854d0e; margin-bottom:12px;">
+                  <i class="fa-solid fa-circle-info"></i> <strong>Informasi:</strong> Proses pembuatan PDF berjalan otomatis di server Google Cloud. Anda bisa <strong>menutup halaman browser ini kapan saja</strong>, proses akan tetap berlanjut di belakang layar hingga selesai.
+                </div>
+                <div style="text-align:center;">
+                  <a href="${driveUrl}" target="_blank" class="secondary-btn" style="text-decoration:none; font-size:0.8rem; display:inline-flex; align-items:center; gap:6px;">
+                    <i class="fa-solid fa-folder-open"></i> Buka Folder Google Drive
+                  </a>
+                </div>
+              </div>
+            `;
+          }
+        }
+      } catch (err) {
+        console.warn('Error polling progress:', err);
+      }
+    }, 3000);
+
   } catch (err) {
-    console.error('Error sending bulk PDFs to Drive:', err);
-    alert('Terjadi kesalahan saat memproses pengiriman PDF ke Google Drive.');
+    console.error('Error starting background process:', err);
+    alert('Terjadi kesalahan saat memulai pengolahan PDF di belakang layar.');
     if (modal) modal.classList.remove('show');
-  } finally {
     printBtn.disabled = false;
     printBtn.innerHTML = oldBtnText;
   }
