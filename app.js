@@ -1627,105 +1627,165 @@ function fetchAndRenderPDFImage(fileId, containerElement, altText) {
 }
 
 /**
- * Starts the automatic background PDF generation on Google Apps Script server
- * and polls the progress status periodically.
+ * Triggers the server-side background PDF generation process via Apps Script.
+ * The server processes 15 respondents per batch using time-driven triggers.
+ * Frontend polls progress every 5 seconds until completion.
  */
 async function printAllCombinedPDF() {
   const printBtn = document.getElementById('print-all-combined-btn');
   if (!printBtn) return;
   const oldBtnText = printBtn.innerHTML;
   
-  const modal = document.getElementById('download-progress-modal');
-  const bar = document.getElementById('download-progress-bar');
-  const status = document.getElementById('download-progress-status');
+  const total = appState.rawData.length;
+  if (total === 0) {
+    alert('Tidak ada data yang siap dikirim ke Google Drive.');
+    return;
+  }
   
-  const driveFolderId = "1nkE2-IO6Hr5X_wKGx1cJkLnpzw8j6KC4";
-  const driveUrl = `https://drive.google.com/drive/folders/${driveFolderId}?usp=drive_link`;
+  // Confirm before starting
+  const confirmMsg = `Proses pembuatan ${total} file PDF akan berjalan otomatis di belakang layar (server Google).\n\n` +
+    `Perkiraan waktu: ~30-45 menit.\n` +
+    `Anda TIDAK perlu membuka browser selama proses berlangsung.\n\n` +
+    `File PDF akan otomatis tersimpan ke folder Google Drive.\n\nLanjutkan?`;
+  if (!confirm(confirmMsg)) return;
 
   printBtn.disabled = true;
-  printBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menghubungi Server...';
+  printBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memulai proses...';
+  
+  const modal = document.getElementById('download-progress-modal');
+  const bar = document.getElementById('download-progress-bar');
+  const statusEl = document.getElementById('download-progress-status');
+  
   if (modal) modal.classList.add('show');
+  if (bar) bar.style.width = '0%';
+  if (statusEl) statusEl.innerText = 'Mengirim perintah ke server Google Apps Script...';
+
+  const driveFolderUrl = 'https://drive.google.com/drive/folders/1nkE2-IO6Hr5X_wKGx1cJkLnpzw8j6KC4?usp=drive_link';
 
   try {
-    // 1. Call API to start background process
-    if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
-      const startRes = await fetch(`${CONFIG.API_URL}?action=startPDFBackground`);
-      const startData = await startRes.json();
-      console.log('Background process started:', startData);
-    }
+    // Step 1: Trigger the server-side background process
+    const startRes = await fetch(`${CONFIG.API_URL}?action=startPDFBackground`);
+    const startData = await startRes.json();
     
-    // 2. Poll progress periodically
-    let mockProcessed = 0;
-    let pollInterval = setInterval(async () => {
-      try {
-        let prog = { processed: 0, total: appState.rawData.length || 290, percent: 0, currentName: '', status: 'RUNNING', estimatedMinutesLeft: 15 };
-        
-        if (CONFIG.API_URL && !CONFIG.USE_MOCK_DATA) {
-          const res = await fetch(`${CONFIG.API_URL}?action=getPDFProgress`);
-          prog = await res.json();
-        } else {
-          // Mock mode fallback
-          mockProcessed = Math.min(mockProcessed + 15, prog.total);
-          prog.processed = mockProcessed;
-          prog.percent = Math.round((prog.processed / prog.total) * 100);
-          prog.currentName = (appState.rawData[mockProcessed - 1] || {}).nama || 'Responden';
-          prog.estimatedMinutesLeft = Math.ceil((prog.total - prog.processed) / 20);
-          if (prog.processed >= prog.total) prog.status = 'COMPLETED';
-        }
+    if (startData.status !== 'success') {
+      throw new Error(startData.message || 'Gagal memulai proses di server.');
+    }
 
-        if (bar) bar.style.width = `${prog.percent || 0}%`;
-        if (status) {
-          if (prog.status === 'COMPLETED') {
-            clearInterval(pollInterval);
-            if (bar) bar.style.width = '100%';
-            status.innerHTML = `
+    if (statusEl) statusEl.innerText = `Proses latar belakang dimulai! Memproses ${startData.total || total} file PDF...`;
+    if (bar) bar.style.width = '5%';
+
+    // Step 2: Poll progress every 5 seconds
+    let isCompleted = false;
+    let pollCount = 0;
+    const maxPolls = 720; // max ~60 minutes of polling (720 x 5s)
+
+    while (!isCompleted && pollCount < maxPolls) {
+      await new Promise(r => setTimeout(r, 5000)); // wait 5 seconds
+      pollCount++;
+
+      try {
+        const progressRes = await fetch(`${CONFIG.API_URL}?action=getPDFProgress`);
+        const progress = await progressRes.json();
+
+        const pct = progress.percent || 0;
+        const processed = progress.processed || 0;
+        const totalServer = progress.total || total;
+        const currentName = progress.currentName || '';
+        const estMin = progress.estimatedMinutesLeft || 0;
+        const serverStatus = progress.status || 'UNKNOWN';
+
+        if (bar) bar.style.width = `${Math.max(pct, 2)}%`;
+
+        if (serverStatus === 'COMPLETED') {
+          isCompleted = true;
+          if (bar) bar.style.width = '100%';
+          if (statusEl) {
+            statusEl.innerHTML = `
               <div style="text-align:center; padding:10px;">
                 <i class="fa-solid fa-circle-check" style="font-size:2.5rem; color:var(--accent-green); margin-bottom:10px;"></i>
-                <h4 style="margin:0 0 5px 0;">Pengiriman PDF Ke Google Drive Selesai!</h4>
+                <h4 style="margin:0 0 5px 0;">Pembuatan PDF Selesai!</h4>
                 <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:15px;">
-                  Berhasil menyimpan <strong>${prog.total}</strong> file PDF ke folder Google Drive di belakang layar.
+                  Berhasil membuat <strong>${processed}</strong> file PDF di folder Google Drive secara otomatis.
                 </p>
-                <a href="${driveUrl}" target="_blank" class="primary-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px; justify-content:center;">
+                <a href="${driveFolderUrl}" target="_blank" class="primary-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px; justify-content:center;">
                   <i class="fa-solid fa-folder-open"></i> Buka Folder Google Drive
                 </a>
+                <div style="margin-top:12px;">
+                  <button onclick="document.getElementById('download-progress-modal').classList.remove('show')" class="secondary-btn" style="font-size:0.8rem; padding:6px 16px; cursor:pointer;">
+                    <i class="fa-solid fa-xmark"></i> Tutup
+                  </button>
+                </div>
               </div>
             `;
-            printBtn.disabled = false;
-            printBtn.innerHTML = oldBtnText;
-          } else {
-            status.innerHTML = `
-              <div style="text-align:left; padding:5px;">
-                <p style="margin:0 0 6px 0; font-weight:600; color:var(--primary-color);">
-                  <i class="fa-solid fa-gear fa-spin"></i> Memproses PDF di Belakang Layar Server...
-                </p>
-                <p style="margin:0 0 4px 0; font-size:0.85rem;">
-                  Terproses: <strong>${prog.processed}</strong> dari <strong>${prog.total}</strong> file (${prog.percent}%)
-                </p>
-                <p style="margin:0 0 8px 0; font-size:0.8rem; color:var(--text-muted);">
-                  File aktif: <em>${prog.currentName || 'Sedang memuat...'}</em> | Sisa waktu: ~<strong>${prog.estimatedMinutesLeft || 10} menit</strong>
-                </p>
-                <div style="background:rgba(234, 179, 8, 0.15); border-left:3px solid #eab308; padding:8px 10px; border-radius:4px; font-size:0.75rem; color:#854d0e; margin-bottom:12px;">
-                  <i class="fa-solid fa-circle-info"></i> <strong>Informasi:</strong> Proses pembuatan PDF berjalan otomatis di server Google Cloud. Anda bisa <strong>menutup halaman browser ini kapan saja</strong>, proses akan tetap berlanjut di belakang layar hingga selesai.
-                </div>
-                <div style="text-align:center;">
-                  <a href="${driveUrl}" target="_blank" class="secondary-btn" style="text-decoration:none; font-size:0.8rem; display:inline-flex; align-items:center; gap:6px;">
-                    <i class="fa-solid fa-folder-open"></i> Buka Folder Google Drive
-                  </a>
+          }
+        } else if (serverStatus === 'STOPPED') {
+          isCompleted = true;
+          if (statusEl) statusEl.innerText = 'Proses dihentikan oleh pengguna.';
+        } else if (serverStatus === 'RUNNING') {
+          const estText = estMin > 0 ? ` (~${estMin} menit tersisa)` : '';
+          if (statusEl) {
+            statusEl.innerHTML = `
+              <div style="font-size:0.85rem;">
+                <strong>Proses berjalan di server Google...</strong><br>
+                <span style="color:var(--text-secondary);">
+                  ${processed} dari ${totalServer} file PDF selesai (${pct}%)${estText}
+                </span>
+                ${currentName ? `<br><span style="font-size:0.8rem; color:var(--text-muted);">Terakhir: ${currentName}</span>` : ''}
+                <div style="margin-top:8px; font-size:0.75rem; color:var(--text-muted);">
+                  <i class="fa-solid fa-info-circle"></i> 
+                  Anda bisa menutup tab ini. Proses tetap berjalan di server.
                 </div>
               </div>
             `;
           }
         }
-      } catch (err) {
-        console.warn('Error polling progress:', err);
+      } catch (pollErr) {
+        console.warn('Poll error (retrying):', pollErr);
+        // Continue polling even on individual poll errors
       }
-    }, 3000);
+    }
+
+    if (!isCompleted) {
+      // Timed out polling but process may still be running on server
+      if (statusEl) {
+        statusEl.innerHTML = `
+          <div style="text-align:center; padding:10px;">
+            <i class="fa-solid fa-clock" style="font-size:2rem; color:var(--warning-color); margin-bottom:10px;"></i>
+            <h4 style="margin:0 0 5px 0;">Proses Masih Berjalan di Server</h4>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:15px;">
+              Polling telah dihentikan, tetapi proses pembuatan PDF masih berjalan di server Google.<br>
+              Cek folder Google Drive Anda secara berkala.
+            </p>
+            <a href="${driveFolderUrl}" target="_blank" class="primary-btn" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px; justify-content:center;">
+              <i class="fa-solid fa-folder-open"></i> Buka Folder Google Drive
+            </a>
+          </div>
+        `;
+      }
+    }
 
   } catch (err) {
-    console.error('Error starting background process:', err);
-    alert('Terjadi kesalahan saat memulai pengolahan PDF di belakang layar.');
-    if (modal) modal.classList.remove('show');
+    console.error('Error starting background PDF process:', err);
+    if (statusEl) {
+      statusEl.innerHTML = `
+        <div style="text-align:center; padding:10px;">
+          <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem; color:var(--danger-color); margin-bottom:10px;"></i>
+          <h4 style="margin:0 0 5px 0;">Gagal Memulai Proses</h4>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:10px;">
+            ${err.message || 'Terjadi kesalahan saat menghubungi server.'}
+          </p>
+          <p style="font-size:0.78rem; color:var(--text-muted);">
+            Pastikan Apps Script sudah di-deploy ulang dengan versi terbaru.
+          </p>
+          <button onclick="document.getElementById('download-progress-modal').classList.remove('show')" class="secondary-btn" style="margin-top:10px; font-size:0.8rem; padding:6px 16px; cursor:pointer;">
+            <i class="fa-solid fa-xmark"></i> Tutup
+          </button>
+        </div>
+      `;
+    }
+  } finally {
     printBtn.disabled = false;
     printBtn.innerHTML = oldBtnText;
   }
 }
+
