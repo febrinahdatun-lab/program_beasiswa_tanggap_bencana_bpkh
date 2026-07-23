@@ -818,9 +818,9 @@ function renderTable() {
 }
 
 /**
- * Open PDF Drive Pop-up Modal (Full Embedded Canvas Preview & Drive Search)
+ * Open PDF Drive Pop-up Modal (Direct Google Drive PDF File Embed)
  */
-async function openPDFDriveModal(id) {
+function openPDFDriveModal(id) {
   const respondent = appState.rawData.find(r => r.id == id);
   if (!respondent) return;
 
@@ -831,107 +831,38 @@ async function openPDFDriveModal(id) {
   const subtitle = document.getElementById('pdf-modal-subtitle');
   const filename = document.getElementById('pdf-modal-filename');
   const openDriveBtn = document.getElementById('pdf-modal-open-drive-btn');
-  const canvasContainer = document.getElementById('pdf-modal-canvas-container');
+  const iframe = document.getElementById('pdf-drive-iframe');
 
-  if (!modal || !canvasContainer) return;
+  if (!modal || !iframe) return;
 
-  const targetFileName = `Form_LPJ_${respondent.nama}.pdf`;
-  const folderSearchUrl = `https://drive.google.com/drive/folders/1n2AMr87NwSePTN-WiJ-dlxcyMNGPz2Ny?q=${encodeURIComponent(respondent.nama)}`;
+  const rawName = respondent.nama || '';
+  const upperName = rawName.toUpperCase().trim();
+  const folderId = '1n2AMr87NwSePTN-WiJ-dlxcyMNGPz2Ny';
 
-  if (title) title.innerText = `Laporan Form LPJ - ${respondent.nama}`;
-  if (subtitle) subtitle.innerText = `Asal Kampus: ${respondent.kampus}`;
+  // Lookup file in drivePdfMap dataset
+  let driveEntry = typeof drivePdfMap !== 'undefined' ? drivePdfMap[upperName] : null;
+
+  let targetFileName = `Form_LPJ_${rawName}.pdf`;
+  let previewUrl = '';
+  let viewUrl = '';
+
+  if (driveEntry && driveEntry.file_id) {
+    targetFileName = driveEntry.filename || targetFileName;
+    previewUrl = `https://drive.google.com/file/d/${driveEntry.file_id}/preview`;
+    viewUrl = `https://drive.google.com/file/d/${driveEntry.file_id}/view`;
+  } else {
+    // Direct Google Drive Search Fallback
+    viewUrl = `https://drive.google.com/drive/folders/${folderId}?q=${encodeURIComponent(rawName)}`;
+    previewUrl = viewUrl;
+  }
+
+  if (title) title.innerText = `Laporan Form LPJ - ${rawName}`;
+  if (subtitle) subtitle.innerText = `Asal Kampus: ${respondent.kampus || '-'}`;
   if (filename) filename.innerText = targetFileName;
-  if (openDriveBtn) openDriveBtn.href = folderSearchUrl;
+  if (openDriveBtn) openDriveBtn.href = viewUrl;
 
-  // Populate A4 template
-  const originalTemplate = document.getElementById('pdf-report-template');
-  if (originalTemplate) {
-    document.getElementById('pdf-reg-id').innerText = respondent.id;
-    document.getElementById('pdf-timestamp').innerText = respondent.timestamp;
-    document.getElementById('pdf-nama').innerText = respondent.nama;
-    document.getElementById('pdf-sig-nama').innerText = respondent.nama;
-    
-    document.getElementById('pdf-kampus').innerText = respondent.kampus;
-    document.getElementById('pdf-semester').innerText = respondent.semester;
-    document.getElementById('pdf-ipk').innerText = respondent.ipk_display;
-    document.getElementById('pdf-whatsapp').innerText = respondent.whatsapp;
-    document.getElementById('pdf-alamat').innerText = respondent.alamat;
-    document.getElementById('pdf-tempat-tinggal').innerText = respondent.tempat_tinggal;
-    document.getElementById('pdf-ukt').innerText = respondent.ukt;
-
-    document.getElementById('pdf-ayah').innerText = respondent.nama_ayah || '-';
-    document.getElementById('pdf-job-ayah').innerText = respondent.pekerjaan_ayah || '-';
-    document.getElementById('pdf-income-ayah').innerText = respondent.penghasilan_ayah || '-';
-    
-    document.getElementById('pdf-ibu').innerText = respondent.nama_ibu || '-';
-    document.getElementById('pdf-job-ibu').innerText = respondent.pekerjaan_ibu || '-';
-    document.getElementById('pdf-income-ibu').innerText = respondent.penghasilan_ibu || '-';
-    
-    document.getElementById('pdf-sig-date').innerText = new Date().toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric'
-    });
-
-    // Render clone into modal canvas container
-    originalTemplate.style.display = 'block';
-    canvasContainer.innerHTML = '';
-    const cloneNode = originalTemplate.cloneNode(true);
-    cloneNode.id = 'pdf-report-template-modal';
-    cloneNode.style.display = 'block';
-    cloneNode.style.margin = '0 auto';
-    canvasContainer.appendChild(cloneNode);
-    originalTemplate.style.display = 'none';
-
-    // Load images async into cloned node
-    Promise.all([
-      loadPDFImage(respondent.ktp, 'pdf-img-ktp', 'LAMPIRAN 1: FOTO KTP'),
-      loadPDFImage(respondent.surat_rekomendasi, 'pdf-img-rekomendasi', 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
-      loadPDFGallery(respondent.foto_rumah, 'pdf-img-rumah')
-    ]);
-  }
-
+  iframe.src = previewUrl;
   modal.classList.add('show');
-}
-
-/**
- * Download PDF directly from Modal Preview
- */
-async function downloadCurrentPDFModal() {
-  const respondent = appState.selectedRespondent;
-  if (!respondent) return;
-
-  const downloadBtn = document.getElementById('pdf-modal-download-btn');
-  const oldText = downloadBtn ? downloadBtn.innerHTML : '';
-  if (downloadBtn) {
-    downloadBtn.disabled = true;
-    downloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengunduh...';
-  }
-
-  const cleanName = (respondent.nama || '').toUpperCase().trim().replace(/\s+/g, '_');
-  const cleanCampus = (respondent.kampus || '').toUpperCase().trim().replace(/\s+/g, '_');
-  const fileName = `Form_LPJ_${cleanName}_${cleanCampus}.pdf`;
-
-  const canvasContainer = document.getElementById('pdf-modal-canvas-container');
-  if (!canvasContainer) return;
-
-  const pdfOptions = {
-    margin: [10, 10, 10, 10],
-    filename: fileName,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, logging: false },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  };
-
-  try {
-    await html2pdf().set(pdfOptions).from(canvasContainer).save();
-  } catch(err) {
-    console.error('Error downloading PDF:', err);
-    alert('Terjadi kesalahan saat mengunduh PDF.');
-  } finally {
-    if (downloadBtn) {
-      downloadBtn.disabled = false;
-      downloadBtn.innerHTML = oldText;
-    }
-  }
 }
 
 /**
@@ -939,6 +870,8 @@ async function downloadCurrentPDFModal() {
  */
 function closePDFDriveModal() {
   const modal = document.getElementById('pdf-drive-modal');
+  const iframe = document.getElementById('pdf-drive-iframe');
+  if (iframe) iframe.src = 'about:blank';
   if (modal) modal.classList.remove('show');
 }
 
