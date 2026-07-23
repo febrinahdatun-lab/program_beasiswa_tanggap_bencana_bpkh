@@ -818,9 +818,9 @@ function renderTable() {
 }
 
 /**
- * Open PDF Pop-up Modal (Full Embedded PDF Document Preview)
+ * Open PDF Drive Pop-up Modal (Direct Google Drive PDF File Embed)
  */
-async function openPDFDriveModal(id) {
+function openPDFDriveModal(id) {
   const respondent = appState.rawData.find(r => r.id == id);
   if (!respondent) return;
 
@@ -830,72 +830,43 @@ async function openPDFDriveModal(id) {
   const title = document.getElementById('pdf-modal-title');
   const subtitle = document.getElementById('pdf-modal-subtitle');
   const filename = document.getElementById('pdf-modal-filename');
-  const canvasContainer = document.getElementById('pdf-modal-canvas-container');
+  const iframe = document.getElementById('pdf-drive-iframe');
 
-  if (!modal || !canvasContainer) return;
+  if (!modal || !iframe) return;
 
-  const rawName = respondent.nama || '';
-  const cleanName = rawName.replace(/[/\\?%*:|"<>]/g, '').trim();
-  const targetFileName = `Form_LPJ_${cleanName}.pdf`;
+  const rawName = (respondent.nama || '').trim();
+  const upperName = rawName.toUpperCase();
+  const folderId = '1n2AMr87NwSePTN-WiJ-dlxcyMNGPz2Ny';
+
+  let targetFileName = `Form_LPJ_${rawName}.pdf`;
+  let previewUrl = '';
+
+  // Lookup file in drivePdfMap
+  let driveEntry = typeof drivePdfMap !== 'undefined' ? drivePdfMap[upperName] : null;
+
+  if (driveEntry && driveEntry.file_id) {
+    targetFileName = driveEntry.filename || targetFileName;
+    previewUrl = `https://drive.google.com/file/d/${driveEntry.file_id}/preview`;
+  } else {
+    // Google Drive Search Preview URL Fallback
+    previewUrl = `https://drive.google.com/drive/folders/${folderId}?q=${encodeURIComponent(rawName)}`;
+  }
 
   if (title) title.innerText = `Laporan Form LPJ - ${rawName}`;
   if (subtitle) subtitle.innerText = `Asal Kampus: ${respondent.kampus || '-'}`;
   if (filename) filename.innerText = targetFileName;
 
-  // Populate A4 template
-  const originalTemplate = document.getElementById('pdf-report-template');
-  if (originalTemplate) {
-    document.getElementById('pdf-reg-id').innerText = respondent.id;
-    document.getElementById('pdf-timestamp').innerText = respondent.timestamp || '-';
-    document.getElementById('pdf-nama').innerText = rawName;
-    document.getElementById('pdf-sig-nama').innerText = rawName;
-    
-    document.getElementById('pdf-kampus').innerText = respondent.kampus || '-';
-    document.getElementById('pdf-semester').innerText = respondent.semester || '-';
-    document.getElementById('pdf-ipk').innerText = respondent.ipk_display || '-';
-    document.getElementById('pdf-whatsapp').innerText = respondent.whatsapp || '-';
-    document.getElementById('pdf-alamat').innerText = respondent.alamat || '-';
-    document.getElementById('pdf-tempat-tinggal').innerText = respondent.tempat_tinggal || '-';
-    document.getElementById('pdf-ukt').innerText = respondent.ukt || '-';
-
-    document.getElementById('pdf-ayah').innerText = respondent.nama_ayah || '-';
-    document.getElementById('pdf-job-ayah').innerText = respondent.pekerjaan_ayah || '-';
-    document.getElementById('pdf-income-ayah').innerText = respondent.penghasilan_ayah || '-';
-    
-    document.getElementById('pdf-ibu').innerText = respondent.nama_ibu || '-';
-    document.getElementById('pdf-job-ibu').innerText = respondent.pekerjaan_ibu || '-';
-    document.getElementById('pdf-income-ibu').innerText = respondent.penghasilan_ibu || '-';
-    
-    document.getElementById('pdf-sig-date').innerText = new Date().toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric'
-    });
-
-    // Render clone into modal canvas container
-    originalTemplate.style.display = 'block';
-    canvasContainer.innerHTML = '';
-    const cloneNode = originalTemplate.cloneNode(true);
-    cloneNode.id = 'pdf-report-template-modal';
-    cloneNode.style.display = 'block';
-    cloneNode.style.margin = '0 auto';
-    canvasContainer.appendChild(cloneNode);
-    originalTemplate.style.display = 'none';
-
-    // Load images async into cloned node
-    Promise.all([
-      loadPDFImage(respondent.ktp, 'pdf-img-ktp', 'LAMPIRAN 1: FOTO KTP'),
-      loadPDFImage(respondent.surat_rekomendasi, 'pdf-img-rekomendasi', 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
-      loadPDFGallery(respondent.foto_rumah, 'pdf-img-rumah')
-    ]);
-  }
-
+  iframe.src = previewUrl;
   modal.classList.add('show');
 }
 
 /**
- * Close PDF Pop-up Modal
+ * Close PDF Drive Pop-up Modal
  */
 function closePDFDriveModal() {
   const modal = document.getElementById('pdf-drive-modal');
+  const iframe = document.getElementById('pdf-drive-iframe');
+  if (iframe) iframe.src = 'about:blank';
   if (modal) modal.classList.remove('show');
 }
 
