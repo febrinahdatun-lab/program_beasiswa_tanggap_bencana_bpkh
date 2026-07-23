@@ -260,12 +260,23 @@ function setupMonitoringEventListeners() {
   
   const overlay = document.getElementById('canvas-overlay');
   if (overlay) overlay.addEventListener('click', closeDetailsCanvas);
-  
-  const downloadPdfBtn = document.getElementById('canvas-download-pdf-btn');
-  if (downloadPdfBtn) downloadPdfBtn.addEventListener('click', downloadRespondentPDF);
-  
-  const printPdfBtn = document.getElementById('canvas-print-pdf-btn');
-  if (printPdfBtn) printPdfBtn.addEventListener('click', printRespondentPDF);
+
+  // PDF Drive Modal & Download events
+  const pdfDownloadBtn = document.getElementById('pdf-modal-download-btn');
+  if (pdfDownloadBtn) pdfDownloadBtn.addEventListener('click', downloadCurrentPDFModal);
+
+  const pdfCloseBtn = document.getElementById('pdf-modal-close-btn');
+  if (pdfCloseBtn) pdfCloseBtn.addEventListener('click', closePDFDriveModal);
+
+  const pdfCloseBottom = document.getElementById('pdf-modal-close-bottom');
+  if (pdfCloseBottom) pdfCloseBottom.addEventListener('click', closePDFDriveModal);
+
+  const pdfDriveModal = document.getElementById('pdf-drive-modal');
+  if (pdfDriveModal) {
+    pdfDriveModal.addEventListener('click', (e) => {
+      if (e.target === pdfDriveModal) closePDFDriveModal();
+    });
+  }
 
   // Search/Filter events
   const searchInput = document.getElementById('table-search');
@@ -315,42 +326,11 @@ function setupMonitoringEventListeners() {
         icon.className = 'fa-solid fa-sort';
       });
       const icon = th.querySelector('i');
-      icon.className = direction === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down';
+      if (icon) icon.className = direction === 'asc' ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down';
       
       sortAndRenderTable();
     });
   });
-
-  // Check-all checkbox listener
-  const checkAll = document.getElementById('check-all');
-  if (checkAll) {
-    checkAll.addEventListener('change', (e) => {
-      const checked = e.target.checked;
-      const visibleCheckboxes = document.querySelectorAll('.row-checkbox');
-      visibleCheckboxes.forEach(cb => {
-        const id = parseInt(cb.getAttribute('data-id'));
-        cb.checked = checked;
-        if (checked) {
-          selectedIds.add(id);
-        } else {
-          selectedIds.delete(id);
-        }
-      });
-      updateBulkDownloadButton();
-    });
-  }
-
-  // Bulk download button
-  const bulkBtn = document.getElementById('bulk-download-pdf-btn');
-  if (bulkBtn) {
-    bulkBtn.addEventListener('click', downloadSelectedPDFs);
-  }
-
-  // Print all combined button
-  const printAllBtn = document.getElementById('print-all-combined-btn');
-  if (printAllBtn) {
-    printAllBtn.addEventListener('click', printAllCombinedPDF);
-  }
 }
 
 /**
@@ -373,10 +353,16 @@ async function loadData(forceRefresh = false) {
       const cached = sessionStorage.getItem('bmm_data_cache');
       if (cached) {
         data = JSON.parse(cached);
-        if (statusText) statusText.innerText = 'Data Terload (Cache)';
-        const sheetMeta = document.getElementById('meta-sheet-name');
-        if (sheetMeta) sheetMeta.innerText = 'Google Sheets (Cached)';
-        if (statusIndicator) statusIndicator.className = 'status-indicator online';
+        // Verify cache validity (must contain jenis_kelamin)
+        if (data && data.length > 0 && !data[0].jenis_kelamin) {
+          sessionStorage.removeItem('bmm_data_cache');
+          data = null;
+        } else {
+          if (statusText) statusText.innerText = 'Data Terload (Cache)';
+          const sheetMeta = document.getElementById('meta-sheet-name');
+          if (sheetMeta) sheetMeta.innerText = 'Google Sheets (Cached)';
+          if (statusIndicator) statusIndicator.className = 'status-indicator online';
+        }
       }
     }
 
@@ -392,17 +378,17 @@ async function loadData(forceRefresh = false) {
         const sheetMeta = document.getElementById('meta-sheet-name');
         if (sheetMeta) sheetMeta.innerText = 'Google Sheets (Live)';
       } else {
-        await new Promise(resolve => setTimeout(resolve, 600));
+        await new Promise(resolve => setTimeout(resolve, 400));
         data = MOCK_DATA;
         if (statusText) statusText.innerText = 'Mode Demo (Mock Data)';
         const sheetMeta = document.getElementById('meta-sheet-name');
-        if (sheetMeta) sheetMeta.innerText = 'Contoh File CSV';
+        if (sheetMeta) sheetMeta.innerText = 'Form Responses 1';
       }
 
       sessionStorage.setItem('bmm_data_cache', JSON.stringify(data));
     }
 
-    // Clean & Standardize IPK immediately on loading data
+    // Clean & Standardize IPK & fields immediately on loading data
     appState.rawData = data.map(item => {
       const cleanedVal = cleanIPK(item.ipk_display || item.ipk);
       return {
@@ -485,6 +471,23 @@ function updateDashboard() {
   }
 
   renderCharts();
+}
+
+/**
+ * Helper to classify income strings into chart categories
+ */
+function classifyIncome(strVal) {
+  if (!strVal) return 'Rp 0 - 1 Juta';
+  const s = String(strVal).toLowerCase().trim();
+  if (s.includes('1000,.001') || s.includes('1000.001') || (s.includes('1000') && s.includes('5000'))) {
+    return 'Rp 1 - 5 Juta';
+  } else if (s.includes('5000.001') || s.includes('10.000.000')) {
+    if (s.includes('>')) return '> Rp 10 Juta';
+    return 'Rp 5 - 10 Juta';
+  } else if (s.includes('0') || s.includes('1000')) {
+    return 'Rp 0 - 1 Juta';
+  }
+  return 'Rp 0 - 1 Juta';
 }
 
 /**
@@ -576,25 +579,22 @@ function renderCharts() {
   appState.rawData.forEach(item => {
     let sem = String(item.semester || "").trim();
     if (!sem) return;
-    
+
+    let num = parseFloat(sem);
     let key = '';
-    if (sem === '1') key = 'Semester 1';
-    else if (sem === '2') key = 'Semester 2';
-    else if (sem === '3') key = 'Semester 3';
-    else if (sem === '4') key = 'Semester 4';
-    else if (sem === '5') key = 'Semester 5';
-    else if (sem === '6') key = 'Semester 6';
-    else if (sem === '7') key = 'Semester 7';
-    else if (sem === '8') key = 'Semester 8';
-    else if (sem === '>8' || sem === '8>' || sem.includes('>') || parseInt(sem) > 8) {
+    if (sem === '>8' || sem === '8>' || sem.includes('>') || num > 8) {
       key = 'Semester >8';
+    } else if (!isNaN(num) && num >= 1 && num <= 8) {
+      key = 'Semester ' + Math.floor(num);
     } else {
-      key = 'Semester ' + sem;
-      if (semesterMap[key] === undefined) {
-        semesterMap[key] = 0;
-      }
+      key = sem.startsWith('Semester') ? sem : 'Semester ' + sem;
     }
-    if (key) semesterMap[key]++;
+    
+    if (semesterMap[key] !== undefined) {
+      semesterMap[key]++;
+    } else {
+      semesterMap[key] = 1;
+    }
   });
   
   const semesterSeriesData = semesterCategories.map(cat => semesterMap[cat] || 0);
@@ -646,33 +646,22 @@ function renderCharts() {
   appState.charts.mhs.render();
 
   // 5. Parent Income double bars
-  const ayahIncomeGrouped = { 'Rp 0 - 1 Juta': 0, 'Rp 1 - 5 Juta': 0, 'Lainnya': 0 };
-  const ibuIncomeGrouped = { 'Rp 0 - 1 Juta': 0, 'Rp 1 - 5 Juta': 0, 'Lainnya': 0 };
+  const incomeCategories = ['Rp 0 - 1 Juta', 'Rp 1 - 5 Juta', 'Rp 5 - 10 Juta', '> Rp 10 Juta'];
+  const ayahIncomeGrouped = { 'Rp 0 - 1 Juta': 0, 'Rp 1 - 5 Juta': 0, 'Rp 5 - 10 Juta': 0, '> Rp 10 Juta': 0 };
+  const ibuIncomeGrouped = { 'Rp 0 - 1 Juta': 0, 'Rp 1 - 5 Juta': 0, 'Rp 5 - 10 Juta': 0, '> Rp 10 Juta': 0 };
 
   appState.rawData.forEach(item => {
-    const payA = item.penghasilan_ayah || "";
-    if (payA.includes("0 s..d 1000.000") || payA.includes("0 s.d 1000")) {
-      ayahIncomeGrouped['Rp 0 - 1 Juta']++;
-    } else if (payA.includes("1000") && payA.includes("5000")) {
-      ayahIncomeGrouped['Rp 1 - 5 Juta']++;
-    } else {
-      ayahIncomeGrouped['Lainnya']++;
-    }
-
-    const payI = item.penghasilan_ibu || "";
-    if (payI.includes("0 s..d 1000.000") || payI.includes("0 s.d 1000")) {
-      ibuIncomeGrouped['Rp 0 - 1 Juta']++;
-    } else if (payI.includes("1000") && payI.includes("5000")) {
-      ibuIncomeGrouped['Rp 1 - 5 Juta']++;
-    } else {
-      ibuIncomeGrouped['Lainnya']++;
-    }
+    const catA = classifyIncome(item.penghasilan_ayah);
+    if (ayahIncomeGrouped[catA] !== undefined) ayahIncomeGrouped[catA]++;
+    
+    const catI = classifyIncome(item.penghasilan_ibu);
+    if (ibuIncomeGrouped[catI] !== undefined) ibuIncomeGrouped[catI]++;
   });
 
   const incomeOptions = {
     series: [
-      { name: 'Ayah', data: Object.values(ayahIncomeGrouped) },
-      { name: 'Ibu', data: Object.values(ibuIncomeGrouped) }
+      { name: 'Ayah', data: incomeCategories.map(cat => ayahIncomeGrouped[cat]) },
+      { name: 'Ibu', data: incomeCategories.map(cat => ibuIncomeGrouped[cat]) }
     ],
     chart: { type: 'bar', height: 260, toolbar: { show: false } },
     theme: { mode: themeMode },
@@ -684,9 +673,10 @@ function renderCharts() {
         columnWidth: '55%',
       }
     },
+    dataLabels: { enabled: true },
     xaxis: {
-      categories: Object.keys(ayahIncomeGrouped),
-      labels: { style: { colors: labelColor } }
+      categories: incomeCategories,
+      labels: { style: { colors: labelColor, fontSize: '9px' } }
     },
     yaxis: {
       labels: { style: { colors: labelColor } }
@@ -720,14 +710,14 @@ function applyTableFilters() {
   if (!searchInput) return;
 
   const query = searchInput.value.toLowerCase().trim();
-  const campusVal = campusFilter.value;
-  const genderVal = genderFilter.value;
+  const campusVal = campusFilter ? campusFilter.value : '';
+  const genderVal = genderFilter ? genderFilter.value : '';
 
   appState.filteredData = appState.rawData.filter(item => {
     const matchesSearch = 
-      item.nama.toLowerCase().includes(query) || 
-      item.kampus.toLowerCase().includes(query) || 
-      item.alamat.toLowerCase().includes(query);
+      (item.nama && item.nama.toLowerCase().includes(query)) || 
+      (item.kampus && item.kampus.toLowerCase().includes(query)) || 
+      (item.alamat && item.alamat.toLowerCase().includes(query));
     
     const matchesCampus = !campusVal || item.kampus === campusVal;
     const matchesGender = !genderVal || item.jenis_kelamin === genderVal;
@@ -746,8 +736,8 @@ function sortAndRenderTable() {
   const dir = appState.currentSort.direction === 'asc' ? 1 : -1;
 
   appState.filteredData.sort((a, b) => {
-    let valA = a[col];
-    let valB = b[col];
+    let valA = a[col] || '';
+    let valB = b[col] || '';
 
     if (typeof valA === 'string') {
       return valA.localeCompare(valB) * dir;
@@ -783,7 +773,7 @@ function renderTable() {
   if (total === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="table-empty-state">
+        <td colspan="6" class="table-empty-state">
           <i class="fa-solid fa-folder-open"></i>
           <p>Tidak ada data penerima yang cocok dengan pencarian.</p>
         </td>
@@ -794,59 +784,162 @@ function renderTable() {
   }
 
   const pageData = appState.filteredData.slice(startIdx, endIdx);
-  
-  // Update header check-all checkbox state based on visible rows
-  const checkAll = document.getElementById('check-all');
-  if (checkAll) {
-    const pageIds = pageData.map(item => item.id);
-    checkAll.checked = pageIds.length > 0 && pageIds.every(id => selectedIds.has(id));
-  }
 
-  pageData.forEach(item => {
-    const isChecked = selectedIds.has(item.id) ? 'checked' : '';
+    pageData.forEach(item => {
     const tr = document.createElement('tr');
+    const displaySemester = parseInt(item.semester) ? `Semester ${parseInt(item.semester)}` : (item.semester || '-');
+
     tr.innerHTML = `
-      <td class="checkbox-col" onclick="event.stopPropagation();">
-        <input type="checkbox" class="row-checkbox" data-id="${item.id}" ${isChecked}>
-      </td>
-      <td><strong>${item.nama}</strong></td>
-      <td>${item.kampus}</td>
-      <td>Semester ${item.semester}</td>
+      <td><strong>${item.nama || '-'}</strong></td>
+      <td>${item.kampus || '-'}</td>
+      <td>${displaySemester}</td>
       <td>
         <span class="rank-badge" style="font-size:0.8rem; padding: 2px 6px; border-radius:4px; background:var(--primary-light); color:var(--primary-color);">
-          ${item.ipk_display}
+          ${item.ipk_display || '0,00'}
         </span>
       </td>
       <td>
         <a href="${formatWhatsAppLink(item.whatsapp)}" target="_blank" class="wa-action-link" style="font-size:0.75rem;">
-          <i class="fa-brands fa-whatsapp"></i> ${item.whatsapp}
+          <i class="fa-brands fa-whatsapp"></i> ${item.whatsapp || '-'}
         </a>
       </td>
-      <td>
-        <button class="action-view-btn" data-id="${item.id}">
-          <i class="fa-solid fa-folder-open"></i> Buka Canvas
+      <td style="text-align: center;">
+        <button class="primary-btn pdf-action-btn" style="font-size:0.78rem; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background-color: var(--primary-color);" onclick="openPDFDriveModal(${item.id})">
+          <i class="fa-solid fa-file-pdf"></i> Lihat PDF
         </button>
       </td>
     `;
-    
-    // Checkbox click toggle selection
-    const cb = tr.querySelector('.row-checkbox');
-    cb.addEventListener('change', (e) => {
-      toggleRowSelection(item.id, e.target.checked);
-    });
-
-    // Row click opens details (ignores clicks directly on checkbox or whatsapp links)
-    tr.addEventListener('click', (e) => {
-      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'A' && e.target.parentElement.tagName !== 'A') {
-        openDetailsCanvas(item);
-      }
-    });
 
     tbody.appendChild(tr);
   });
 
   const totalPages = Math.ceil(total / appState.rowsPerPage);
   updatePaginationControls(totalPages);
+}
+
+/**
+ * Open PDF Drive Pop-up Modal (Full Embedded Canvas Preview & Drive Search)
+ */
+async function openPDFDriveModal(id) {
+  const respondent = appState.rawData.find(r => r.id == id);
+  if (!respondent) return;
+
+  appState.selectedRespondent = respondent;
+  
+  const modal = document.getElementById('pdf-drive-modal');
+  const title = document.getElementById('pdf-modal-title');
+  const subtitle = document.getElementById('pdf-modal-subtitle');
+  const filename = document.getElementById('pdf-modal-filename');
+  const openDriveBtn = document.getElementById('pdf-modal-open-drive-btn');
+  const canvasContainer = document.getElementById('pdf-modal-canvas-container');
+
+  if (!modal || !canvasContainer) return;
+
+  const targetFileName = `Form_LPJ_${respondent.nama}.pdf`;
+  const folderSearchUrl = `https://drive.google.com/drive/folders/1n2AMr87NwSePTN-WiJ-dlxcyMNGPz2Ny?q=${encodeURIComponent(respondent.nama)}`;
+
+  if (title) title.innerText = `Laporan Form LPJ - ${respondent.nama}`;
+  if (subtitle) subtitle.innerText = `Asal Kampus: ${respondent.kampus}`;
+  if (filename) filename.innerText = targetFileName;
+  if (openDriveBtn) openDriveBtn.href = folderSearchUrl;
+
+  // Populate A4 template
+  const originalTemplate = document.getElementById('pdf-report-template');
+  if (originalTemplate) {
+    document.getElementById('pdf-reg-id').innerText = respondent.id;
+    document.getElementById('pdf-timestamp').innerText = respondent.timestamp;
+    document.getElementById('pdf-nama').innerText = respondent.nama;
+    document.getElementById('pdf-sig-nama').innerText = respondent.nama;
+    
+    document.getElementById('pdf-kampus').innerText = respondent.kampus;
+    document.getElementById('pdf-semester').innerText = respondent.semester;
+    document.getElementById('pdf-ipk').innerText = respondent.ipk_display;
+    document.getElementById('pdf-whatsapp').innerText = respondent.whatsapp;
+    document.getElementById('pdf-alamat').innerText = respondent.alamat;
+    document.getElementById('pdf-tempat-tinggal').innerText = respondent.tempat_tinggal;
+    document.getElementById('pdf-ukt').innerText = respondent.ukt;
+
+    document.getElementById('pdf-ayah').innerText = respondent.nama_ayah || '-';
+    document.getElementById('pdf-job-ayah').innerText = respondent.pekerjaan_ayah || '-';
+    document.getElementById('pdf-income-ayah').innerText = respondent.penghasilan_ayah || '-';
+    
+    document.getElementById('pdf-ibu').innerText = respondent.nama_ibu || '-';
+    document.getElementById('pdf-job-ibu').innerText = respondent.pekerjaan_ibu || '-';
+    document.getElementById('pdf-income-ibu').innerText = respondent.penghasilan_ibu || '-';
+    
+    document.getElementById('pdf-sig-date').innerText = new Date().toLocaleDateString('id-ID', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    });
+
+    // Render clone into modal canvas container
+    originalTemplate.style.display = 'block';
+    canvasContainer.innerHTML = '';
+    const cloneNode = originalTemplate.cloneNode(true);
+    cloneNode.id = 'pdf-report-template-modal';
+    cloneNode.style.display = 'block';
+    cloneNode.style.margin = '0 auto';
+    canvasContainer.appendChild(cloneNode);
+    originalTemplate.style.display = 'none';
+
+    // Load images async into cloned node
+    Promise.all([
+      loadPDFImage(respondent.ktp, 'pdf-img-ktp', 'LAMPIRAN 1: FOTO KTP'),
+      loadPDFImage(respondent.surat_rekomendasi, 'pdf-img-rekomendasi', 'LAMPIRAN 2: SURAT REKOMENDASI KAMPUS'),
+      loadPDFGallery(respondent.foto_rumah, 'pdf-img-rumah')
+    ]);
+  }
+
+  modal.classList.add('show');
+}
+
+/**
+ * Download PDF directly from Modal Preview
+ */
+async function downloadCurrentPDFModal() {
+  const respondent = appState.selectedRespondent;
+  if (!respondent) return;
+
+  const downloadBtn = document.getElementById('pdf-modal-download-btn');
+  const oldText = downloadBtn ? downloadBtn.innerHTML : '';
+  if (downloadBtn) {
+    downloadBtn.disabled = true;
+    downloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengunduh...';
+  }
+
+  const cleanName = (respondent.nama || '').toUpperCase().trim().replace(/\s+/g, '_');
+  const cleanCampus = (respondent.kampus || '').toUpperCase().trim().replace(/\s+/g, '_');
+  const fileName = `Form_LPJ_${cleanName}_${cleanCampus}.pdf`;
+
+  const canvasContainer = document.getElementById('pdf-modal-canvas-container');
+  if (!canvasContainer) return;
+
+  const pdfOptions = {
+    margin: [10, 10, 10, 10],
+    filename: fileName,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  try {
+    await html2pdf().set(pdfOptions).from(canvasContainer).save();
+  } catch(err) {
+    console.error('Error downloading PDF:', err);
+    alert('Terjadi kesalahan saat mengunduh PDF.');
+  } finally {
+    if (downloadBtn) {
+      downloadBtn.disabled = false;
+      downloadBtn.innerHTML = oldText;
+    }
+  }
+}
+
+/**
+ * Close PDF Drive Pop-up Modal
+ */
+function closePDFDriveModal() {
+  const modal = document.getElementById('pdf-drive-modal');
+  if (modal) modal.classList.remove('show');
 }
 
 /**
